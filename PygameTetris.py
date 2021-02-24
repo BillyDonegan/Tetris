@@ -12,6 +12,8 @@
 # TO FIX - Tetromino not working either e.g 10,10,10,10,9,7,3 -> 9,10 -> 9 which is not right
 # TO FIX - Screen size is not changing based on screen_height (HOME SCREEN WORKS NOW)
 # TO FIX - Rotation at right edge of screen fails for resizing (e.g. 400)
+# TO FIX - Issues may be due to multiple key presses at once and trying to do both....
+# TO FIX - Fast Down is a problem too
 # Optional - Add a ghost Tetromino
 
 # -------- Machine Learning -------------------------
@@ -79,44 +81,44 @@ class Brain:
             keyboard.press('z')
 
 
-class generic_Brick(pygame.sprite.Sprite):
-    def __init__(self, X, Y, R, G, B, Org):
-        super(generic_Brick, self).__init__()
+class GenericBrick(pygame.sprite.Sprite):
+    def __init__(self, x, y, r, g, b, org):
+        super(GenericBrick, self).__init__()
         self.surf = pygame.Surface((screen_width / number_of_columns, screen_width / number_of_columns))
-        self.surf.fill((R, G, B))
+        self.surf.fill((r, g, b))
         self.rect = self.surf.get_rect()
-        self.rect.x = X
-        self.rect.y = Y
-        self.Xcoord = X
-        self.Ycoord = Y
-        self.red = R
-        self.green = G
-        self.blue = B
-        self.origin = Org
+        self.rect.x = x
+        self.rect.y = y
+        self.Xcoord = x
+        self.Ycoord = y
+        self.red = r
+        self.green = g
+        self.blue = b
+        self.origin = org
         self.bottom = int(self.Ycoord + screen_width / number_of_columns)
 
 
 class Tetromino:
-    def __init__(self, type, ghostFlag):
+    def __init__(self, tetrominotype, ghostflag):
         super(Tetromino, self).__init__()
         self.bricks = []
         self.leftEdge = False
         self.rightEdge = False
         self.wallOverlap = False
-        self.ghost = ghostFlag
-        self.type = type
+        self.ghost = ghostflag
+        self.type = tetrominotype
         self.rotationAngle = 0
-        if type == 0:  # 0 . No Rotation or Variants so no function required
-            self.bricks.append(generic_Brick(tetromino_start_x, tetromino_start_y, 255, 255, 0, True))
+        if tetrominotype == 0:  # 0 . No Rotation or Variants so no function required
+            self.bricks.append(GenericBrick(tetromino_start_x, tetromino_start_y, 255, 255, 0, True))
             self.bricks.append(
-                generic_Brick(tetromino_start_x + int(screen_width / number_of_columns), tetromino_start_y, 255, 255, 0,
-                              False))
+                GenericBrick(tetromino_start_x + int(screen_width / number_of_columns), tetromino_start_y, 255, 255, 0,
+                             False))
             self.bricks.append(
-                generic_Brick(tetromino_start_x, tetromino_start_y + int(screen_height / number_of_rows), 255, 255, 0,
-                              False))
-            self.bricks.append(generic_Brick(tetromino_start_x + int(screen_width / number_of_columns),
-                                             tetromino_start_y + int(screen_height / number_of_rows), 255, 255, 0,
-                                             False))
+                GenericBrick(tetromino_start_x, tetromino_start_y + int(screen_height / number_of_rows), 255, 255, 0,
+                             False))
+            self.bricks.append(GenericBrick(tetromino_start_x + int(screen_width / number_of_columns),
+                                            tetromino_start_y + int(screen_height / number_of_rows), 255, 255, 0,
+                                            False))
         else:
             self.rotationAngle = 270  # Just trigger a rotation to 0 to draw a new Tetromino in place.
             self.rotate()
@@ -145,171 +147,171 @@ class Tetromino:
             if self.rotationAngle == 0 or self.rotationAngle == 180:
                 if x - int(screen_width / number_of_columns) >= 0 and x + int(screen_width / number_of_columns) <= 160:
                     self.bricks = []
-                    self.bricks.append(generic_Brick(x, y, 0, 255, 255, True))
-                    self.bricks.append(generic_Brick(x + int(screen_width / number_of_columns), y, 0, 255, 255, True))
-                    self.bricks.append(generic_Brick(x - int(screen_width / number_of_columns), y, 0, 255, 255, False))
+                    self.bricks.append(GenericBrick(x, y, 0, 255, 255, True))
+                    self.bricks.append(GenericBrick(x + int(screen_width / number_of_columns), y, 0, 255, 255, True))
+                    self.bricks.append(GenericBrick(x - int(screen_width / number_of_columns), y, 0, 255, 255, False))
                     self.bricks.append(
-                        generic_Brick(x + 2 * int(screen_width / number_of_columns), y, 0, 255, 255, False))
+                        GenericBrick(x + 2 * int(screen_width / number_of_columns), y, 0, 255, 255, False))
                 else:
                     self.rotationAngle = (self.rotationAngle - 90) % 360
             elif self.rotationAngle == 90 or self.rotationAngle == 270:
                 if y < screen_height - 2 * int(screen_width / number_of_columns):
                     self.bricks = []
-                    self.bricks.append(generic_Brick(x, y, 0, 255, 255, True))
-                    self.bricks.append(generic_Brick(x, y + int(screen_height / number_of_rows), 0, 255, 255, False))
-                    self.bricks.append(generic_Brick(x, y - int(screen_height / number_of_rows), 0, 255, 255, False))
+                    self.bricks.append(GenericBrick(x, y, 0, 255, 255, True))
+                    self.bricks.append(GenericBrick(x, y + int(screen_height / number_of_rows), 0, 255, 255, False))
+                    self.bricks.append(GenericBrick(x, y - int(screen_height / number_of_rows), 0, 255, 255, False))
                     self.bricks.append(
-                        generic_Brick(x, y + 2 * int(screen_height / number_of_rows), 0, 255, 255, False))
+                        GenericBrick(x, y + 2 * int(screen_height / number_of_rows), 0, 255, 255, False))
                 else:
                     self.rotationAngle = (self.rotationAngle - 90) % 360
         elif self.type == 2:  # Z
             if self.rotationAngle == 0 or self.rotationAngle == 180:
                 if x - int(screen_width / number_of_columns) >= 0:
                     self.bricks = []
-                    self.bricks.append(generic_Brick(x - int(screen_width / number_of_columns), y, 255, 0, 0, False))
-                    self.bricks.append(generic_Brick(x, y, 255, 0, 0, True))
-                    self.bricks.append(generic_Brick(x, y + int(screen_height / number_of_rows), 255, 0, 0, False))
-                    self.bricks.append(generic_Brick(x + int(screen_width / number_of_columns),
-                                                     y + int(screen_height / number_of_rows), 255, 0, 0, False))
+                    self.bricks.append(GenericBrick(x - int(screen_width / number_of_columns), y, 255, 0, 0, False))
+                    self.bricks.append(GenericBrick(x, y, 255, 0, 0, True))
+                    self.bricks.append(GenericBrick(x, y + int(screen_height / number_of_rows), 255, 0, 0, False))
+                    self.bricks.append(GenericBrick(x + int(screen_width / number_of_columns),
+                                                    y + int(screen_height / number_of_rows), 255, 0, 0, False))
             elif self.rotationAngle == 90 or self.rotationAngle == 270:
                 self.bricks = []
-                self.bricks.append(generic_Brick(x + int(screen_width / number_of_columns), y, 255, 0, 0, False))
-                self.bricks.append(generic_Brick(x, y, 255, 0, 0, True))
-                self.bricks.append(generic_Brick(x, y + int(screen_height / number_of_rows), 255, 0, 0, False))
-                self.bricks.append(generic_Brick(x + 1 * int(screen_width / number_of_columns),
-                                                 y - int(screen_height / number_of_rows), 255, 0, 0, False))
+                self.bricks.append(GenericBrick(x + int(screen_width / number_of_columns), y, 255, 0, 0, False))
+                self.bricks.append(GenericBrick(x, y, 255, 0, 0, True))
+                self.bricks.append(GenericBrick(x, y + int(screen_height / number_of_rows), 255, 0, 0, False))
+                self.bricks.append(GenericBrick(x + 1 * int(screen_width / number_of_columns),
+                                                y - int(screen_height / number_of_rows), 255, 0, 0, False))
         elif self.type == 3:  # S
             if self.rotationAngle == 0 or self.rotationAngle == 180:
                 if x - int(screen_width / number_of_columns) >= 0:
                     self.bricks = []
-                    self.bricks.append(generic_Brick(x + int(screen_width / number_of_columns), y, 0, 255, 0, False))
-                    self.bricks.append(generic_Brick(x, y, 0, 255, 0, True))
-                    self.bricks.append(generic_Brick(x - int(screen_width / number_of_columns),
-                                                     y + int(screen_height / number_of_rows), 0, 255, 0, False))
-                    self.bricks.append(generic_Brick(x, y + int(screen_height / number_of_rows), 0, 255, 0, False))
+                    self.bricks.append(GenericBrick(x + int(screen_width / number_of_columns), y, 0, 255, 0, False))
+                    self.bricks.append(GenericBrick(x, y, 0, 255, 0, True))
+                    self.bricks.append(GenericBrick(x - int(screen_width / number_of_columns),
+                                                    y + int(screen_height / number_of_rows), 0, 255, 0, False))
+                    self.bricks.append(GenericBrick(x, y + int(screen_height / number_of_rows), 0, 255, 0, False))
             elif self.rotationAngle == 90 or self.rotationAngle == 270:
                 self.bricks = []
-                self.bricks.append(generic_Brick(x, y, 0, 255, 0, True))
-                self.bricks.append(generic_Brick(x + 1 * int(screen_width / number_of_columns), y, 0, 255, 0, False))
-                self.bricks.append(generic_Brick(x + 1 * int(screen_width / number_of_columns),
-                                                 y + int(screen_height / number_of_rows), 0, 255, 0, False))
-                self.bricks.append(generic_Brick(x, y - 1 * int(screen_height / number_of_rows), 0, 255, 0, False))
+                self.bricks.append(GenericBrick(x, y, 0, 255, 0, True))
+                self.bricks.append(GenericBrick(x + 1 * int(screen_width / number_of_columns), y, 0, 255, 0, False))
+                self.bricks.append(GenericBrick(x + 1 * int(screen_width / number_of_columns),
+                                                y + int(screen_height / number_of_rows), 0, 255, 0, False))
+                self.bricks.append(GenericBrick(x, y - 1 * int(screen_height / number_of_rows), 0, 255, 0, False))
         elif self.type == 4:  # T
             if self.rotationAngle == 0:
                 if x < 180:
                     self.bricks = []
                     self.bricks.append(
-                        generic_Brick(x, y - int(screen_height / number_of_rows), 128, 0, 128, False))  # 1
-                    self.bricks.append(generic_Brick(x, y, 128, 0, 128, True))  # 0
+                        GenericBrick(x, y - int(screen_height / number_of_rows), 128, 0, 128, False))  # 1
+                    self.bricks.append(GenericBrick(x, y, 128, 0, 128, True))  # 0
                     self.bricks.append(
-                        generic_Brick(x + int(screen_width / number_of_columns), y, 128, 0, 128, False))  # 3
+                        GenericBrick(x + int(screen_width / number_of_columns), y, 128, 0, 128, False))  # 3
                     self.bricks.append(
-                        generic_Brick(x - int(screen_width / number_of_columns), y, 128, 0, 128, False))  # 2
+                        GenericBrick(x - int(screen_width / number_of_columns), y, 128, 0, 128, False))  # 2
                 else:
                     self.rotationAngle = (self.rotationAngle - 90) % 360
             elif self.rotationAngle == 90:
                 self.bricks = []
-                self.bricks.append(generic_Brick(x, y - int(screen_height / number_of_rows), 128, 0, 128, False))  # 1
-                self.bricks.append(generic_Brick(x, y, 128, 0, 128, True))  # 0
-                self.bricks.append(generic_Brick(x + int(screen_width / number_of_columns), y, 128, 0, 128, False))  # 3
-                self.bricks.append(generic_Brick(x, y + int(screen_height / number_of_rows), 128, 0, 128, False))  # 4
+                self.bricks.append(GenericBrick(x, y - int(screen_height / number_of_rows), 128, 0, 128, False))  # 1
+                self.bricks.append(GenericBrick(x, y, 128, 0, 128, True))  # 0
+                self.bricks.append(GenericBrick(x + int(screen_width / number_of_columns), y, 128, 0, 128, False))  # 3
+                self.bricks.append(GenericBrick(x, y + int(screen_height / number_of_rows), 128, 0, 128, False))  # 4
             elif self.rotationAngle == 180:
                 if x > 0:
                     self.bricks = []
                     self.bricks.append(
-                        generic_Brick(x - int(screen_width / number_of_columns), y, 128, 0, 128, False))  # 2
-                    self.bricks.append(generic_Brick(x, y, 128, 0, 128, True))  # 0
+                        GenericBrick(x - int(screen_width / number_of_columns), y, 128, 0, 128, False))  # 2
+                    self.bricks.append(GenericBrick(x, y, 128, 0, 128, True))  # 0
                     self.bricks.append(
-                        generic_Brick(x + int(screen_width / number_of_columns), y, 128, 0, 128, False))  # 3
+                        GenericBrick(x + int(screen_width / number_of_columns), y, 128, 0, 128, False))  # 3
                     self.bricks.append(
-                        generic_Brick(x, y + int(screen_height / number_of_rows), 128, 0, 128, False))  # 4
+                        GenericBrick(x, y + int(screen_height / number_of_rows), 128, 0, 128, False))  # 4
                 else:
                     self.rotationAngle = (self.rotationAngle - 90) % 360
             elif self.rotationAngle == 270:
                 self.bricks = []
-                self.bricks.append(generic_Brick(x, y - int(screen_height / number_of_rows), 128, 0, 128, False))  # 1
-                self.bricks.append(generic_Brick(x - int(screen_width / number_of_columns), y, 128, 0, 128, False))  # 2
-                self.bricks.append(generic_Brick(x, y, 128, 0, 128, True))  # 0
-                self.bricks.append(generic_Brick(x, y + int(screen_height / number_of_rows), 128, 0, 128, False))  # 4
+                self.bricks.append(GenericBrick(x, y - int(screen_height / number_of_rows), 128, 0, 128, False))  # 1
+                self.bricks.append(GenericBrick(x - int(screen_width / number_of_columns), y, 128, 0, 128, False))  # 2
+                self.bricks.append(GenericBrick(x, y, 128, 0, 128, True))  # 0
+                self.bricks.append(GenericBrick(x, y + int(screen_height / number_of_rows), 128, 0, 128, False))  # 4
         elif self.type == 5:  # L
             if self.rotationAngle == 0:
                 if x < 180:
                     self.bricks = []
-                    self.bricks.append(generic_Brick(x + int(screen_width / number_of_columns), y, 255, 165, 0, False))
-                    self.bricks.append(generic_Brick(x - int(screen_width / number_of_columns),
-                                                     y + 1 * int(screen_height / number_of_rows), 255, 165, 0, False))
-                    self.bricks.append(generic_Brick(x, y + 1 * int(screen_height / number_of_rows), 255, 165, 0, True))
-                    self.bricks.append(generic_Brick(x + int(screen_width / number_of_columns),
-                                                     y + 1 * int(screen_height / number_of_rows), 255, 165, 0, False))
+                    self.bricks.append(GenericBrick(x + int(screen_width / number_of_columns), y, 255, 165, 0, False))
+                    self.bricks.append(GenericBrick(x - int(screen_width / number_of_columns),
+                                                    y + 1 * int(screen_height / number_of_rows), 255, 165, 0, False))
+                    self.bricks.append(GenericBrick(x, y + 1 * int(screen_height / number_of_rows), 255, 165, 0, True))
+                    self.bricks.append(GenericBrick(x + int(screen_width / number_of_columns),
+                                                    y + 1 * int(screen_height / number_of_rows), 255, 165, 0, False))
                 else:
                     self.rotationAngle = (self.rotationAngle - 90) % 360
             elif self.rotationAngle == 90:
                 self.bricks = []
-                self.bricks.append(generic_Brick(x, y, 255, 165, 0, False))
-                self.bricks.append(generic_Brick(x, y - 1 * int(screen_height / number_of_rows), 255, 165, 0, False))
-                self.bricks.append(generic_Brick(x, y - 2 * int(screen_height / number_of_rows), 255, 165, 0, True))
-                self.bricks.append(generic_Brick(x + int(screen_width / number_of_columns), y, 255, 165, 0, False))
+                self.bricks.append(GenericBrick(x, y, 255, 165, 0, False))
+                self.bricks.append(GenericBrick(x, y - 1 * int(screen_height / number_of_rows), 255, 165, 0, False))
+                self.bricks.append(GenericBrick(x, y - 2 * int(screen_height / number_of_rows), 255, 165, 0, True))
+                self.bricks.append(GenericBrick(x + int(screen_width / number_of_columns), y, 255, 165, 0, False))
             elif self.rotationAngle == 180:
                 if x > 0:
                     self.bricks = []
-                    self.bricks.append(generic_Brick(x - int(screen_width / number_of_columns),
-                                                     y + 2 * int(screen_height / number_of_rows), 255, 165, 0, False))
-                    self.bricks.append(generic_Brick(x - int(screen_width / number_of_columns),
-                                                     y + 1 * int(screen_height / number_of_rows), 255, 165, 0, True))
+                    self.bricks.append(GenericBrick(x - int(screen_width / number_of_columns),
+                                                    y + 2 * int(screen_height / number_of_rows), 255, 165, 0, False))
+                    self.bricks.append(GenericBrick(x - int(screen_width / number_of_columns),
+                                                    y + 1 * int(screen_height / number_of_rows), 255, 165, 0, True))
                     self.bricks.append(
-                        generic_Brick(x, y + 1 * int(screen_height / number_of_rows), 255, 165, 0, False))
-                    self.bricks.append(generic_Brick(x + int(screen_width / number_of_columns),
-                                                     y + 1 * int(screen_height / number_of_rows), 255, 165, 0, False))
+                        GenericBrick(x, y + 1 * int(screen_height / number_of_rows), 255, 165, 0, False))
+                    self.bricks.append(GenericBrick(x + int(screen_width / number_of_columns),
+                                                    y + 1 * int(screen_height / number_of_rows), 255, 165, 0, False))
                 else:
                     self.rotationAngle = (self.rotationAngle - 90) % 360
             elif self.rotationAngle == 270:
                 self.bricks = []
-                self.bricks.append(generic_Brick(x + int(screen_width / number_of_columns),
-                                                 y - 1 * int(screen_height / number_of_rows), 255, 165, 0, False))
-                self.bricks.append(generic_Brick(x + int(screen_width / number_of_columns), y, 255, 165, 0, True))
-                self.bricks.append(generic_Brick(x + int(screen_width / number_of_columns),
-                                                 y + 1 * int(screen_height / number_of_rows), 255, 165, 0, False))
-                self.bricks.append(generic_Brick(x, y - 1 * int(screen_height / number_of_rows), 255, 165, 0, False))
+                self.bricks.append(GenericBrick(x + int(screen_width / number_of_columns),
+                                                y - 1 * int(screen_height / number_of_rows), 255, 165, 0, False))
+                self.bricks.append(GenericBrick(x + int(screen_width / number_of_columns), y, 255, 165, 0, True))
+                self.bricks.append(GenericBrick(x + int(screen_width / number_of_columns),
+                                                y + 1 * int(screen_height / number_of_rows), 255, 165, 0, False))
+                self.bricks.append(GenericBrick(x, y - 1 * int(screen_height / number_of_rows), 255, 165, 0, False))
         elif self.type == 6:  # J
             if self.rotationAngle == 0:
                 if x < 180:
                     self.bricks = []
-                    self.bricks.append(generic_Brick(x - int(screen_width / number_of_columns), y, 0, 0, 255, False))
-                    self.bricks.append(generic_Brick(x - int(screen_width / number_of_columns),
-                                                     y + 1 * int(screen_height / number_of_rows), 0, 0, 255, False))
-                    self.bricks.append(generic_Brick(x, y + 1 * int(screen_height / number_of_rows), 0, 0, 255, True))
-                    self.bricks.append(generic_Brick(x + int(screen_width / number_of_columns),
-                                                     y + 1 * int(screen_height / number_of_rows), 0, 0, 255, False))
+                    self.bricks.append(GenericBrick(x - int(screen_width / number_of_columns), y, 0, 0, 255, False))
+                    self.bricks.append(GenericBrick(x - int(screen_width / number_of_columns),
+                                                    y + 1 * int(screen_height / number_of_rows), 0, 0, 255, False))
+                    self.bricks.append(GenericBrick(x, y + 1 * int(screen_height / number_of_rows), 0, 0, 255, True))
+                    self.bricks.append(GenericBrick(x + int(screen_width / number_of_columns),
+                                                    y + 1 * int(screen_height / number_of_rows), 0, 0, 255, False))
                 else:
                     self.rotationAngle = (self.rotationAngle - 90) % 360
             elif self.rotationAngle == 90:
                 self.bricks = []
-                self.bricks.append(generic_Brick(x + int(screen_width / number_of_columns),
-                                                 y - 2 * int(screen_height / number_of_rows), 0, 0, 255, False))
-                self.bricks.append(generic_Brick(x, y - 2 * int(screen_height / number_of_rows), 0, 0, 255, True))
-                self.bricks.append(generic_Brick(x, y - int(screen_height / number_of_rows), 0, 0, 255, False))
-                self.bricks.append(generic_Brick(x, y, 0, 0, 255, False))
+                self.bricks.append(GenericBrick(x + int(screen_width / number_of_columns),
+                                                y - 2 * int(screen_height / number_of_rows), 0, 0, 255, False))
+                self.bricks.append(GenericBrick(x, y - 2 * int(screen_height / number_of_rows), 0, 0, 255, True))
+                self.bricks.append(GenericBrick(x, y - int(screen_height / number_of_rows), 0, 0, 255, False))
+                self.bricks.append(GenericBrick(x, y, 0, 0, 255, False))
             elif self.rotationAngle == 180:
                 if x > 0:
                     self.bricks = []
-                    self.bricks.append(generic_Brick(x - int(screen_width / number_of_columns),
-                                                     y + 1 * int(screen_height / number_of_rows), 0, 0, 255, False))
-                    self.bricks.append(generic_Brick(x + int(screen_width / number_of_columns),
-                                                     y + 2 * int(screen_height / number_of_rows), 0, 0, 255, False))
-                    self.bricks.append(generic_Brick(x, y + 1 * int(screen_height / number_of_rows), 0, 0, 255, True))
-                    self.bricks.append(generic_Brick(x + int(screen_width / number_of_columns),
-                                                     y + 1 * int(screen_height / number_of_rows), 0, 0, 255, False))
+                    self.bricks.append(GenericBrick(x - int(screen_width / number_of_columns),
+                                                    y + 1 * int(screen_height / number_of_rows), 0, 0, 255, False))
+                    self.bricks.append(GenericBrick(x + int(screen_width / number_of_columns),
+                                                    y + 2 * int(screen_height / number_of_rows), 0, 0, 255, False))
+                    self.bricks.append(GenericBrick(x, y + 1 * int(screen_height / number_of_rows), 0, 0, 255, True))
+                    self.bricks.append(GenericBrick(x + int(screen_width / number_of_columns),
+                                                    y + 1 * int(screen_height / number_of_rows), 0, 0, 255, False))
                 else:
                     self.rotationAngle = (self.rotationAngle - 90) % 360
             elif self.rotationAngle == 270:
                 self.bricks = []
-                self.bricks.append(generic_Brick(x, y - 1 * int(screen_height / number_of_rows), 0, 0, 255, False))
-                self.bricks.append(generic_Brick(x, y, 0, 0, 255, True))
-                self.bricks.append(generic_Brick(x, y + 1 * int(screen_height / number_of_rows), 0, 0, 255, False))
-                self.bricks.append(generic_Brick(x - int(screen_width / number_of_columns),
-                                                 y + 1 * int(screen_height / number_of_rows), 0, 0, 255, False))
+                self.bricks.append(GenericBrick(x, y - 1 * int(screen_height / number_of_rows), 0, 0, 255, False))
+                self.bricks.append(GenericBrick(x, y, 0, 0, 255, True))
+                self.bricks.append(GenericBrick(x, y + 1 * int(screen_height / number_of_rows), 0, 0, 255, False))
+                self.bricks.append(GenericBrick(x - int(screen_width / number_of_columns),
+                                                y + 1 * int(screen_height / number_of_rows), 0, 0, 255, False))
 
-    def update(self, pressed_keys, Wall, score, level, number_Of_Rows_With_No_Downkey):
+    def update(self, pressed_keys, wall, score, number_of_rows_with_no_downkey):
         self.leftEdge = False
         self.rightEdge = False
 
@@ -318,7 +320,7 @@ class Tetromino:
             for brick in self.bricks:
                 if brick.rect.left <= 0:
                     self.leftEdge = True
-                for wallBrick in Wall.bricks:
+                for wallBrick in wall.bricks:
                     if brick.Xcoord - int(screen_width / number_of_columns) == wallBrick.Xcoord:
                         if brick.Ycoord == wallBrick.Ycoord:
                             self.leftEdge = True
@@ -331,7 +333,7 @@ class Tetromino:
             for brick in self.bricks:
                 if brick.rect.right >= screen_width:
                     self.rightEdge = True
-                for wallBrick in Wall.bricks:
+                for wallBrick in wall.bricks:
                     if brick.Xcoord + int(screen_width / number_of_columns) == wallBrick.Xcoord:
                         if brick.Ycoord == wallBrick.Ycoord:
                             self.rightEdge = True
@@ -342,32 +344,32 @@ class Tetromino:
 
         if pressed_keys[K_DOWN]:
             for brick in self.bricks:
-                if brick.Ycoord > number_Of_Rows_With_No_Downkey * int(screen_height / number_of_rows):
+                if brick.Ycoord > number_of_rows_with_no_downkey * int(screen_height / number_of_rows):
                     while self.wallOverlap is False:
-                        self.drop_Tetromino(Wall)
+                        self.drop_tetromino(wall)
                         score += 1
 
         if pressed_keys[K_SPACE]:
             self.rotate()
 
         if pressed_keys[K_z]:
-            self.drop_Tetromino(Wall)
+            self.drop_tetromino(wall)
             score += 1
 
         return score
 
-    def drop_Tetromino(self, Wall):
+    def drop_tetromino(self, wall):
         for brick in self.bricks:
             if brick.bottom >= screen_height:
                 self.wallOverlap = True
-            for wallBrick in Wall.bricks:
+            for wallBrick in wall.bricks:
                 if brick.Xcoord == wallBrick.Xcoord:
                     if brick.Ycoord + int(screen_height / number_of_rows) == wallBrick.Ycoord:
                         self.wallOverlap = True
         if self.wallOverlap is True:
             for brick in self.bricks:
-                New_Brick = generic_Brick(brick.Xcoord, brick.Ycoord, brick.red, brick.green, brick.blue, False)
-                Wall.bricks.append(New_Brick)
+                new_brick = GenericBrick(brick.Xcoord, brick.Ycoord, brick.red, brick.green, brick.blue, False)
+                wall.bricks.append(new_brick)
         elif self.wallOverlap is False:
             for brick in self.bricks:
                 brick.Ycoord = brick.Ycoord + int(screen_height / number_of_rows)
@@ -375,15 +377,15 @@ class Tetromino:
                 brick.bottom = int(brick.Ycoord + screen_width / number_of_columns)
 
 
-class wallClass:
+class WallClass:
     def __init__(self):
         self.bricks = []
         self.bricksperLine = []
         self.completeRows = []
         self.tooHigh = False
-        super(wallClass, self).__init__()
+        super(WallClass, self).__init__()
 
-    def clearLines(self, level, score):
+    def clearlines(self, level, score):
 
         # Initialise
         self.bricksperLine = [0] * number_of_rows
@@ -436,7 +438,7 @@ class TetrisGame(pygame.sprite.Sprite):
         self.level_speed_rate = 45
         self.FPS = 10
         self.screen_Caption = "Tetris"
-        self.number_Of_Rows_With_No_Downkey = 3
+        self.number_of_rows_with_no_downkey = 3
         self.seed = 1234  # Can be randomised if needed
         pygame.init()
         self.screen_dim = (screen_width, screen_height)  # Screen Size
@@ -457,7 +459,7 @@ class TetrisGame(pygame.sprite.Sprite):
         self.tetromino = Tetromino(self.tetromino_Index[0], False)
         self.ghost_tetromino = Tetromino(self.tetromino_Index[0], False)
         self.rotation_test_tetromino = Tetromino(self.tetromino_Index[0], False)
-        self.tetris_Wall = wallClass()  # For drawing target location of Tetromino
+        self.tetris_Wall = WallClass()  # For drawing target location of Tetromino
         self.Brain = Brain(4)
         super(TetrisGame, self).__init__()
 
@@ -467,7 +469,7 @@ class TetrisGame(pygame.sprite.Sprite):
             if event.type == QUIT:  # This may need to be adjusted for automated re-starts. same as game over trigger
                 sys.exit()
             elif event.type == self.drop_Tetromino and self.paused is False:
-                self.tetromino.drop_Tetromino(self.tetris_Wall)
+                self.tetromino.drop_tetromino(self.tetris_Wall)
 
         if self.player == "Machine":
             Brain.makeamove(self.Brain)
@@ -486,7 +488,7 @@ class TetrisGame(pygame.sprite.Sprite):
             random.Random(self.seed).shuffle(self.tetromino_Index)
             # random.shuffle(tetromino_Index)
             self.tetromino = Tetromino(self.tetromino_Index[0], False)
-            self.tetris_Wall = wallClass()
+            self.tetris_Wall = WallClass()
             self.score = 0
             self.level = 0
             self.tetromino_Count = 0
@@ -500,7 +502,7 @@ class TetrisGame(pygame.sprite.Sprite):
             random.Random(self.seed).shuffle(self.tetromino_Index)
             # random.shuffle(tetromino_Index)
             self.tetromino = Tetromino(self.tetromino_Index[0], False)
-            self.tetris_Wall = wallClass()
+            self.tetris_Wall = WallClass()
             self.score = 0
             self.level = 0
             self.tetromino_Count = 0
@@ -517,9 +519,9 @@ class TetrisGame(pygame.sprite.Sprite):
             exit()
 
     def updateactivegame(self, pressed_keys):
-        self.score = self.tetromino.update(pressed_keys, self.tetris_Wall, self.score, self.level,
-                                           self.number_Of_Rows_With_No_Downkey)
-        score_candidate = self.tetris_Wall.clearLines(self.level, self.score)
+        self.score = self.tetromino.update(pressed_keys, self.tetris_Wall, self.score,
+                                           self.number_of_rows_with_no_downkey)
+        score_candidate = self.tetris_Wall.clearlines(self.level, self.score)
         if score_candidate == -1:
             self.activeGame = False
         else:
