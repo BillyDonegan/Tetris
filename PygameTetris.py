@@ -2,24 +2,25 @@
 # -*- coding: utf-8 -*-
 # A Pygame Implementation of Tetris
 # Author: Billy Donegan (billydonegan76)
-# Date 12/05/2020
+# Date 24/02/2021
 # To Do:
 # --------- GAME  5 Bugs :( ---------------------------
 # FIXED - Handle issue with rotation into Wall which creates >10 items per line and then everything breaks
 # FIXED - Putting a Tetromino under a line makes it stop which is wrong; it should continue to drop
-# TO FIX - Ceiling Bug where not checking overlap for created Tetromino
-# TO FIX - Rare glitch with rotating at very bottom
-# TO FIX - Tetromino not working either e.g 10,10,10,10,9,7,3 -> 9,10 -> 9 which is not right
-# TO FIX - Screen size is not changing based on screen_height (HOME SCREEN WORKS NOW)
-# TO FIX - Rotation at right edge of screen fails for resizing (e.g. 400)
-# TO FIX - Issues may be due to multiple key presses at once and trying to do both....
-# TO FIX - Fast Down is a problem too
-# Optional - Add a ghost Tetromino
+# A bunch of the remaining issues may be due to multiple key presses at once and trying to do both. So need to update the event handle to process
+# FIXED - Rare glitch with rotating at very bottom (Seems to be fixed)
+# TO FIX - Ceiling Bug where not checking overlap for created Tetromino. THIS IMPACTS BOTH THE MACHIN AND HUMAN GAME
+# TO FIX - Tetromino clearing is not working either e.g 10,10,10,10,9,7,3 -> 9,10 -> 9 which is not right
+# FIXED - Fast Down is a problem too (Seems to be fixed)
+# Optional - Add a ghost Tetromino (Ignoring for now)
+# Optional - Screen size is not changing based on screen_height (HOME SCREEN WORKS NOW - Ignoring Re-sizing for now)
+# Optional- Rotation at right edge of screen fails for resizing (e.g. 400) (Ignoring Re-sizing for now)
 
 # -------- Machine Learning -------------------------
 # Want a neural network with parameters that takes in the current state and returns a value 0 - 4
 # Initiation of parameters can be random initially but needs to be read from a File
 # DONE - Moving based on that number is implemented
+# To Do - Populate based on a NN not a Random nunber. Params Don't matter right not so will be crap
 
 # -------- Machine Learning Training ----------------
 # Key Expectation for training is that this must ultimately be able to run without screen
@@ -28,11 +29,10 @@
 # Will aim to wrap in a Reinforcement Learning Process for AI Tetris Player (but one step at a time...)
 # Incrementing of parameters is part of training and needs to be output as a File
 
-# ------- Porting To Android-----------------
+# ------- Porting To Android (IGNORING FOR NOW)-----------------
 # Port to Kivy
 # Last Step: Turn into a callable function with graphics switchable on or off
 # DONE - Accept inputs from code not from keys
-# ---------Cloud Connectivity for Training?---------------
 import time
 import sys
 import math
@@ -476,6 +476,7 @@ class TetrisGame(pygame.sprite.Sprite):
 
         # Handle inputs for the game and pass Tetromino moves to the Tetromino object
         pressed_keys = pygame.key.get_pressed()
+        pygame.event.set_blocked(pygame.KEYDOWN)
         if pressed_keys[K_n]:
             print("New Game!")
             keyboard.release(Key.space)
@@ -517,6 +518,8 @@ class TetrisGame(pygame.sprite.Sprite):
 
         if pressed_keys[K_e]:
             exit()
+
+        pygame.event.set_allowed(pygame.KEYDOWN)
 
     def updateactivegame(self, pressed_keys):
         self.score = self.tetromino.update(pressed_keys, self.tetris_Wall, self.score,
