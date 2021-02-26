@@ -2,18 +2,12 @@
 # -*- coding: utf-8 -*-
 # A Pygame Implementation of Tetris
 # Author: Billy Donegan (billydonegan76)
-# Date 24/02/2021
+# Date 25/02/2021
 # To Do:
-# --------- GAME  5 Bugs :( ---------------------------
-# FIXED - Handle issue with rotation into Wall which creates >10 items per line and then everything breaks
-# FIXED - Putting a Tetromino under a line makes it stop which is wrong; it should continue to drop
-# FIXED - Rare glitch with rotating at very bottom (Fixed by key handle event)
-# FIXED - Ceiling Bug where not checking overlap for created Tetromino. THIS IMPACTS BOTH GAMEs
-# FIXED - Fast Down is a problem too (Fixed by key handle event)
-# TO FIX - Tetromino clearing is not working either e.g 10,10,10,10,9,7,3 -> 9,10 -> 9 which is not right - Line 412
+# --------- GAME  3 Low priority changes ---------------------------
 # Optional - Add a ghost Tetromino (Ignoring for now)
-# Optional - Screen size is not changing based on screen_height (HOME SCREEN WORKS NOW - Ignoring Re-sizing for now)
-# Optional- Rotation at right edge of screen fails for resizing (e.g. 400) (Ignoring Re-sizing for now)
+# Optional - Screen size is not changing based on screen_height (ignoring and will do via webapp
+# Optional- Rotation at right edge of screen fails for resizing (e.g. 400) (Ignoring and will do via webapp)
 
 # -------- Machine Learning -------------------------
 # Want a neural network (DQN) with parameters that takes in the current state and returns a value 0 - 4
@@ -32,10 +26,8 @@
 # Will aim to wrap in a Reinforcement Learning Process for AI Tetris Player (but one step at a time...)
 # Incrementing of parameters is part of training and needs to be output as a File
 
-# ------- Porting To Android (IGNORING FOR NOW)-----------------
-# Port to Kivy
-# Last Step: Turn into a callable function with graphics switchable on or off
-# DONE - Accept inputs from code not from keys
+# -------- WebApp, Deployment and Cloud Storage/Compute ----------------
+
 import time
 import sys
 import math
@@ -53,7 +45,6 @@ number_of_rows = 40
 screen_width = int(screen_height / 4)
 tetromino_start_x = int(screen_width / 2) - int(screen_width / number_of_columns)
 tetromino_start_y = int(screen_height / number_of_rows)
-print(int(screen_width / number_of_columns))
 
 # Timers
 fpsclock = pygame.time.Clock()
@@ -112,7 +103,7 @@ class Tetromino:
         self.ghost = ghostflag
         self.type = tetrominotype
         self.rotationAngle = 0
-        if tetrominotype == 0:  # 0 . No Rotation or Variants so no function required
+        if tetrominotype == 0:  # 0.Square. No Rotation or Variants so no function required
             self.bricks.append(GenericBrick(tetromino_start_x, tetromino_start_y, 255, 255, 0, True))
             self.bricks.append(
                 GenericBrick(tetromino_start_x + int(screen_width / number_of_columns), tetromino_start_y, 255, 255, 0,
@@ -146,7 +137,7 @@ class Tetromino:
                     x = brick.Xcoord
                     y = brick.Ycoord
 
-            # Need to handle wall events now too
+        # Need to handle wall events now too
         if self.type == 1:  # I
             if self.rotationAngle == 0 or self.rotationAngle == 180:
                 if x - int(screen_width / number_of_columns) >= 0 and x + int(screen_width / number_of_columns) <= 160:
@@ -319,7 +310,7 @@ class Tetromino:
         self.leftEdge = False
         self.rightEdge = False
 
-        # Left and Right need something to stop them moving when they hit the bottom. That will solve most of the issue
+        # Left and Right also need something to stop them moving when they hit the bottom.
         if pressed_keys[K_LEFT]:
             for brick in self.bricks:
                 if brick.rect.left <= 0:
@@ -390,24 +381,21 @@ class WallClass:
         super(WallClass, self).__init__()
 
     def clearlines(self, level, score):
-
         # Initialise
         self.bricksperLine = [0] * number_of_rows
         self.completeRows = []
 
-        # Build Wall Brick Count Array
+        # Build and Display Wall Brick Count Array
         for i in range(0, number_of_rows):
             for brick in self.bricks:
                 if brick.Ycoord == screen_height - (i + 1) * int(screen_width / number_of_columns):
                     self.bricksperLine[i] = self.bricksperLine[i] + 1
 
-        print(self.bricksperLine)  # THIS WILL TELL YOU WHEN THE ISSUE IS RESOLVED. ONLY DOWN TO ROTATION NOW
-
-        # Check for GameOver. This is still needed if the block goes over the line
+        # Check for GameOver due to too many rows
         if self.bricksperLine[number_of_rows - 1] > 0:
             return -1
 
-        # Search for and remove Complete Rows --- This needs work
+        # Search for and remove Complete Rows
         for i in range(0, number_of_rows):
             if self.bricksperLine[i] >= number_of_columns:
                 self.bricks = [brick for brick in self.bricks if
@@ -423,15 +411,16 @@ class WallClass:
         elif len(self.completeRows) == 4:
             score += 1200 * (level + 1)
 
-        # Drop Down Lines
-        while len(self.completeRows) > 0:
-            for i in range(self.completeRows[-1] + 1, number_of_rows):
+        # Drop Down Lines left after complete lines have been removed
+        if len(self.completeRows) > 0:
+            for rows in range(len(self.completeRows)-1, -1, -1):
+                j = self.completeRows[rows] + 1
+                print(j)
                 for brick in self.bricks:
-                    if brick.Ycoord < screen_height - i * int(screen_width / number_of_columns):
+                    if brick.Ycoord < screen_height - j * int(screen_width / number_of_columns):
                         brick.Ycoord = brick.Ycoord + int(screen_height / number_of_rows)
                         brick.rect.y = brick.Ycoord
                         brick.bottom = int(brick.Ycoord + screen_width / number_of_columns)
-            self.completeRows.pop(-1)
         return score
 
 
@@ -482,7 +471,6 @@ class TetrisGame(pygame.sprite.Sprite):
         pressed_keys = pygame.key.get_pressed()
         pygame.event.set_blocked(pygame.KEYDOWN)
         if pressed_keys[K_n]:
-            print("New Game!")
             keyboard.release(Key.space)
             keyboard.release(Key.right)
             keyboard.release(Key.left)
@@ -501,7 +489,6 @@ class TetrisGame(pygame.sprite.Sprite):
             self.player = "Human"
 
         if pressed_keys[K_m]:
-            print("New Machine Game!")
             # Instantiate our Tetromino for next game
             self.tetromino_Index = [0, 1, 2, 3, 4, 5, 6]
             random.Random(self.seed).shuffle(self.tetromino_Index)
@@ -537,19 +524,14 @@ class TetrisGame(pygame.sprite.Sprite):
         if self.tetromino.wallOverlap is True:
             self.tetromino_Count = self.tetromino_Count + 1
             tetromino_type = self.tetromino_Index[self.tetromino_Count % 7]
-            print("New Tetromino")
             self.tetromino = Tetromino(tetromino_type, False)
-            # self.ghost_tetromino = Tetromino(tetromino_type, True)
-            # self.rotation_test_tetromino = Tetromino(tetromino_type, True)
             if (self.tetromino_Count % 7) == 6:
                 random.Random().shuffle(self.tetromino_Index)
-            # THIS MIGHT BE PART OF THE SOLUTION
             for brick in self.tetromino.bricks:
                 for wallBrick in self.tetris_Wall.bricks:
                     if brick.rect.x == wallBrick.rect.x:
                         if brick.rect.y == wallBrick.rect.y:
                             self.tetromino.wallOverlap = True
-                            print("Overlap so end game")
                             self.activeGame = False
 
         # Redraw, so clear screen, fill background, redraw wall and redraw tetromino
@@ -559,7 +541,7 @@ class TetrisGame(pygame.sprite.Sprite):
         # Display Score
         msg = "Score: " + str(self.score)
         msg_color = (255, 255, 255)
-        f = pygame.font.SysFont(None, 24)
+        f = pygame.font.SysFont('arial', 12)
         msg_image = f.render(msg, True, msg_color, None)
         scoresurf = pygame.Surface((20, 5), pygame.SRCALPHA, 32)
         scorerect = scoresurf.get_rect()
@@ -575,7 +557,7 @@ class TetrisGame(pygame.sprite.Sprite):
 
         level_msg = "Level: " + str(self.level)
         level_msg_color = (255, 255, 0)
-        g = pygame.font.SysFont(None, 24)
+        g = pygame.font.SysFont('arial', 12)
         level_msg_image = g.render(level_msg, True, level_msg_color, None)
         levelsurf = pygame.Surface((20, 5), pygame.SRCALPHA, 32)
         levelrect = levelsurf.get_rect()
@@ -605,8 +587,8 @@ class TetrisGame(pygame.sprite.Sprite):
         start_msg3_color = (255, 255, 255)
         start_msg4 = "Score: " + str(oldscore)
         start_msg4_color = (255, 255, 255)
-        g = pygame.font.SysFont(None, 22)  # - math.ceil(800/screen_height))
-        g2 = pygame.font.SysFont(None, 16)  # - math.ceil(800/screen_height))
+        g = pygame.font.SysFont('arial', 22)  # - math.ceil(800/screen_height))
+        g2 = pygame.font.SysFont('arial', 16)  # - math.ceil(800/screen_height))
         start_msg1_image = g.render(start_msg1, True, start_msg1_color, None)
         start_msg2_image = g2.render(start_msg2, True, start_msg2_color, None)
         start_msg3_image = g2.render(start_msg3, True, start_msg3_color, None)
