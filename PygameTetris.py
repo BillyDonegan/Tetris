@@ -4,29 +4,30 @@
 # Author: Billy Donegan (billydonegan76)
 # Date 25/02/2021
 # To Do:
-# --------- GAME  3 Low priority changes ---------------------------
+# --------- 1. GAME  3 Low priority changes ---------------------------
 # Optional - Add a ghost Tetromino (Ignoring for now)
 # Optional - Screen size is not changing based on screen_height (ignoring and will do via webapp
 # Optional- Rotation at right edge of screen fails for resizing (e.g. 400) (Ignoring and will do via webapp)
 
-# -------- Machine Learning -------------------------
+# -------- 2. Machine Learning -------------------------
 # Want a neural network (DQN) with parameters that takes in the current state and returns a value 0 - 4
 # Initiation of parameters can be random initially but needs to be read from a File
 # DONE - Moving based on that number is implemented (we have a brain but its an RNG...)
-# To Do - Populate based on a DQN not a Random number. Params Don't matter right not so will be crap
+# To Do - Populate based on a DQN not a Random number. Params Don't matter right not so will be crap.
+# Needs to take in the game state as an input
 # 1. Implement a DQN
 # 2. Use DQN to drive moves
 # 3. Train DQN
 # 4. Store, load, saved trained states and game
 
-# -------- Machine Learning Training ----------------
+# -------- 3. Machine Learning Training ----------------
 # Key Expectation for training is that this must ultimately be able to run without screen
 # (but can show the game progressing)
 # Can be considered a function that takes a seed, sequence of inputs and returns a score.
 # Will aim to wrap in a Reinforcement Learning Process for AI Tetris Player (but one step at a time...)
 # Incrementing of parameters is part of training and needs to be output as a File
 
-# -------- WebApp, Deployment and Cloud Storage/Compute ----------------
+# -------- 4. WebApp, Deployment and Cloud Storage/Compute ----------------
 
 import time
 import sys
