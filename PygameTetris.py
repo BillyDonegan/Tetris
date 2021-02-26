@@ -7,20 +7,23 @@
 # --------- GAME  5 Bugs :( ---------------------------
 # FIXED - Handle issue with rotation into Wall which creates >10 items per line and then everything breaks
 # FIXED - Putting a Tetromino under a line makes it stop which is wrong; it should continue to drop
-# A bunch of the remaining issues may be due to multiple key presses at once and trying to do both. So need to update the event handle to process
-# FIXED - Rare glitch with rotating at very bottom (Seems to be fixed)
-# TO FIX - Ceiling Bug where not checking overlap for created Tetromino. THIS IMPACTS BOTH THE MACHIN AND HUMAN GAME
-# TO FIX - Tetromino clearing is not working either e.g 10,10,10,10,9,7,3 -> 9,10 -> 9 which is not right
-# FIXED - Fast Down is a problem too (Seems to be fixed)
+# FIXED - Rare glitch with rotating at very bottom (Fixed by key handle event)
+# FIXED - Ceiling Bug where not checking overlap for created Tetromino. THIS IMPACTS BOTH GAMEs
+# FIXED - Fast Down is a problem too (Fixed by key handle event)
+# TO FIX - Tetromino clearing is not working either e.g 10,10,10,10,9,7,3 -> 9,10 -> 9 which is not right - Line 412
 # Optional - Add a ghost Tetromino (Ignoring for now)
 # Optional - Screen size is not changing based on screen_height (HOME SCREEN WORKS NOW - Ignoring Re-sizing for now)
 # Optional- Rotation at right edge of screen fails for resizing (e.g. 400) (Ignoring Re-sizing for now)
 
 # -------- Machine Learning -------------------------
-# Want a neural network with parameters that takes in the current state and returns a value 0 - 4
+# Want a neural network (DQN) with parameters that takes in the current state and returns a value 0 - 4
 # Initiation of parameters can be random initially but needs to be read from a File
-# DONE - Moving based on that number is implemented
-# To Do - Populate based on a NN not a Random nunber. Params Don't matter right not so will be crap
+# DONE - Moving based on that number is implemented (we have a brain but its an RNG...)
+# To Do - Populate based on a DQN not a Random number. Params Don't matter right not so will be crap
+# 1. Implement a DQN
+# 2. Use DQN to drive moves
+# 3. Train DQN
+# 4. Store, load, saved trained states and game
 
 # -------- Machine Learning Training ----------------
 # Key Expectation for training is that this must ultimately be able to run without screen
@@ -34,6 +37,7 @@
 # Last Step: Turn into a callable function with graphics switchable on or off
 # DONE - Accept inputs from code not from keys
 import time
+import tensorflow as tf
 import sys
 import math
 import random
@@ -50,6 +54,7 @@ number_of_rows = 40
 screen_width = int(screen_height / 4)
 tetromino_start_x = int(screen_width / 2) - int(screen_width / number_of_columns)
 tetromino_start_y = int(screen_height / number_of_rows)
+print(int(screen_width / number_of_columns))
 
 # Timers
 fpsclock = pygame.time.Clock()
@@ -68,7 +73,7 @@ class Brain:
         keyboard.release(Key.left)
         keyboard.release(Key.down)
         keyboard.release('z')
-        self.key = random.randint(0, self.Output_options)
+        self.key = random.randint(0, self.Output_options)  # This single line is what will be replaced by the DQN
         if self.key == 0:
             keyboard.press(Key.space)
         elif self.key == 1:
@@ -399,11 +404,11 @@ class WallClass:
 
         print(self.bricksperLine)  # THIS WILL TELL YOU WHEN THE ISSUE IS RESOLVED. ONLY DOWN TO ROTATION NOW
 
-        # Check for GameOver print(self.bricksperLine)
+        # Check for GameOver. This is still needed if the block goes over the line
         if self.bricksperLine[number_of_rows - 1] > 0:
             return -1
 
-        # Search for and remove Complete Rows
+        # Search for and remove Complete Rows --- This needs work
         for i in range(0, number_of_rows):
             if self.bricksperLine[i] >= number_of_columns:
                 self.bricks = [brick for brick in self.bricks if
@@ -535,19 +540,22 @@ class TetrisGame(pygame.sprite.Sprite):
             tetromino_type = self.tetromino_Index[self.tetromino_Count % 7]
             print("New Tetromino")
             self.tetromino = Tetromino(tetromino_type, False)
-            self.ghost_tetromino = Tetromino(tetromino_type, True)
-            self.rotation_test_tetromino = Tetromino(tetromino_type, True)
+            #self.ghost_tetromino = Tetromino(tetromino_type, True)
+            #self.rotation_test_tetromino = Tetromino(tetromino_type, True)
             if (self.tetromino_Count % 7) == 6:
                 random.Random().shuffle(self.tetromino_Index)
             # THIS MIGHT BE PART OF THE SOLUTION
-            # for brick in self.tetromino.bricks:
-            # for wallBrick in self.tetris_Wall.bricks:
-            # if brick.rect.x == wallBrick.rect.x:
-            # if brick.rect.y + int(screen_height/number_of_rows) >= wallBrick.rect.y :
-            # self.tetromino.wallOverlap = True
+            for brick in self.tetromino.bricks:
+                for wallBrick in self.tetris_Wall.bricks:
+                    if brick.rect.x == wallBrick.rect.x:
+                        if brick.rect.y == wallBrick.rect.y :
+                            self.tetromino.wallOverlap = True
+                            print("Overlap so end game")
+                            self.activeGame = False
 
         # Redraw, so clear screen, fill background, redraw wall and redraw tetromino
-        self.screen.fill(self.screen_bg_colour)
+        if self.activeGame == True:
+            self.screen.fill(self.screen_bg_colour)
 
         # Display Score
         msg = "Score: " + str(self.score)
@@ -577,12 +585,13 @@ class TetrisGame(pygame.sprite.Sprite):
         self.screen.blit(level_msg_image, levelrect)
 
         # Draw Bricks and Draw Wall
-        for brick in self.tetromino.bricks:
-            brick.rect.x = brick.Xcoord
-            brick.rect.y = brick.Ycoord
-            self.screen.blit(brick.surf, brick.rect)
-        for brick in self.tetris_Wall.bricks:
-            self.screen.blit(brick.surf, brick.rect)
+        if self.activeGame == True:
+            for brick in self.tetromino.bricks:
+                brick.rect.x = brick.Xcoord
+                brick.rect.y = brick.Ycoord
+                self.screen.blit(brick.surf, brick.rect)
+            for brick in self.tetris_Wall.bricks:
+                self.screen.blit(brick.surf, brick.rect)
 
     def updatepausedgame(self):
         oldscore = self.score
