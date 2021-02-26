@@ -37,7 +37,6 @@
 # Last Step: Turn into a callable function with graphics switchable on or off
 # DONE - Accept inputs from code not from keys
 import time
-import tensorflow as tf
 import sys
 import math
 import random
@@ -540,21 +539,21 @@ class TetrisGame(pygame.sprite.Sprite):
             tetromino_type = self.tetromino_Index[self.tetromino_Count % 7]
             print("New Tetromino")
             self.tetromino = Tetromino(tetromino_type, False)
-            #self.ghost_tetromino = Tetromino(tetromino_type, True)
-            #self.rotation_test_tetromino = Tetromino(tetromino_type, True)
+            # self.ghost_tetromino = Tetromino(tetromino_type, True)
+            # self.rotation_test_tetromino = Tetromino(tetromino_type, True)
             if (self.tetromino_Count % 7) == 6:
                 random.Random().shuffle(self.tetromino_Index)
             # THIS MIGHT BE PART OF THE SOLUTION
             for brick in self.tetromino.bricks:
                 for wallBrick in self.tetris_Wall.bricks:
                     if brick.rect.x == wallBrick.rect.x:
-                        if brick.rect.y == wallBrick.rect.y :
+                        if brick.rect.y == wallBrick.rect.y:
                             self.tetromino.wallOverlap = True
                             print("Overlap so end game")
                             self.activeGame = False
 
         # Redraw, so clear screen, fill background, redraw wall and redraw tetromino
-        if self.activeGame == True:
+        if self.activeGame is True:
             self.screen.fill(self.screen_bg_colour)
 
         # Display Score
@@ -585,7 +584,7 @@ class TetrisGame(pygame.sprite.Sprite):
         self.screen.blit(level_msg_image, levelrect)
 
         # Draw Bricks and Draw Wall
-        if self.activeGame == True:
+        if self.activeGame is True:
             for brick in self.tetromino.bricks:
                 brick.rect.x = brick.Xcoord
                 brick.rect.y = brick.Ycoord
