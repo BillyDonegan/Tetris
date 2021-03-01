@@ -432,7 +432,7 @@ class TetrisGame(pygame.sprite.Sprite):
         self.level_speed_rate = 45
         self.FPS = 10
         self.screen_Caption = "Tetris"
-        self.number_of_rows_with_no_downkey = 3
+        self.number_of_rows_with_no_downkey = 2
         self.seed = 1234  # Can be randomised if needed
         pygame.init()
         self.screen_dim = (screen_width, screen_height)  # Screen Size
