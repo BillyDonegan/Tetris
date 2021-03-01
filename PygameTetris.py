@@ -465,7 +465,7 @@ class TetrisGame(pygame.sprite.Sprite):
             elif event.type == self.drop_Tetromino and self.paused is False:
                 self.tetromino.drop_tetromino(self.tetris_Wall)
 
-        if self.player == "Machine":
+        if self.player == "Machine" and self.paused is False and self.activeGame is True:
             Brain.makeamove(self.Brain)
 
         # Handle inputs for the game and pass Tetromino moves to the Tetromino object
