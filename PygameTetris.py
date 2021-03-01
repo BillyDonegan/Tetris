@@ -580,7 +580,7 @@ class TetrisGame(pygame.sprite.Sprite):
         oldlevel = self.level
         oldcount = self.tetromino_Count
         self.screen.fill(self.screen_bg_colour)
-        start_msg1 = "TETRIS: (N)ew/(M)achine"
+        start_msg1 = "TETRIS: (N)ew/(M)achine/(T)rain"
         start_msg1_color = (255, 0, 0)
         start_msg2 = "Tetrominos: " + str(oldcount)
         start_msg2_color = (255, 255, 255)
@@ -588,7 +588,7 @@ class TetrisGame(pygame.sprite.Sprite):
         start_msg3_color = (255, 255, 255)
         start_msg4 = "Score: " + str(oldscore)
         start_msg4_color = (255, 255, 255)
-        g = pygame.font.SysFont('arial', 22)  # - math.ceil(800/screen_height))
+        g = pygame.font.SysFont('arial', 12)  # - math.ceil(800/screen_height))
         g2 = pygame.font.SysFont('arial', 16)  # - math.ceil(800/screen_height))
         start_msg1_image = g.render(start_msg1, True, start_msg1_color, None)
         start_msg2_image = g2.render(start_msg2, True, start_msg2_color, None)
