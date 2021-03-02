@@ -34,6 +34,7 @@ import sys
 import math
 import random
 import pygame
+import numpy as np
 from pygame.locals import *
 from pynput.keyboard import Key, Controller
 
@@ -58,7 +59,9 @@ class Brain:
         self.Output_options = brainoutputoptions
         self.key = []
 
-    def makeamove(self):
+    # This is now receiving a state matrix of the game. This will be the inputs
+    # together with score level and number of tetrominos
+    def makeamove(self, inputstatematrix):
         keyboard.release(Key.space)
         keyboard.release(Key.right)
         keyboard.release(Key.left)
@@ -414,7 +417,7 @@ class WallClass:
 
         # Drop Down Lines left after complete lines have been removed
         if len(self.completeRows) > 0:
-            for rows in range(len(self.completeRows)-1, -1, -1):
+            for rows in range(len(self.completeRows) - 1, -1, -1):
                 j = self.completeRows[rows] + 1
                 print(j)
                 for brick in self.bricks:
@@ -454,7 +457,7 @@ class TetrisGame(pygame.sprite.Sprite):
         self.ghost_tetromino = Tetromino(self.tetromino_Index[0], False)
         self.rotation_test_tetromino = Tetromino(self.tetromino_Index[0], False)
         self.tetris_Wall = WallClass()  # For drawing target location of Tetromino
-        self.Brain = Brain(4)
+        self.brain = Brain(4)
         super(TetrisGame, self).__init__()
 
     def handleevents(self):
@@ -466,7 +469,14 @@ class TetrisGame(pygame.sprite.Sprite):
                 self.tetromino.drop_tetromino(self.tetris_Wall)
 
         if self.player == "Machine" and self.paused is False and self.activeGame is True:
-            Brain.makeamove(self.Brain)
+            # Need to generate a vector or Matrix here of the Screen Status (0 - empty, 1 = wall or tetromino block)
+            statematrix = np.zeros((number_of_rows, number_of_columns))
+            for brick in self.tetromino.bricks:
+                statematrix[int(brick.Ycoord / 20), int(brick.Xcoord / 20)] = 1
+            for brick in self.tetris_Wall.bricks:
+                statematrix[int(brick.Ycoord / 20), int(brick.Xcoord / 20)] = 1
+            # print(statematrix)
+            self.brain.makeamove(statematrix)
 
         # Handle inputs for the game and pass Tetromino moves to the Tetromino object
         pressed_keys = pygame.key.get_pressed()
@@ -501,6 +511,10 @@ class TetrisGame(pygame.sprite.Sprite):
             self.tetromino_Count = 0
             self.activeGame = True
             self.player = "Machine"
+
+        if pressed_keys[K_t]:
+            print("We will now run 1000 iterations of the game to train the model")
+            self.activeGame = False
 
         if pressed_keys[K_p]:
             self.paused = not self.paused
