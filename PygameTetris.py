@@ -4,30 +4,35 @@
 # Author: Billy Donegan (billydonegan76)
 # Date 25/02/2021
 # To Do:
-# --------- 1. GAME  3 Low priority changes ---------------------------
+# --------- 1. GAME  3 Low priority changes Left ---------------------------
 # Optional - Add a ghost Tetromino (Ignoring for now)
-# Optional - Screen size is not changing based on screen_height (ignoring and will do via webapp
-# Optional- Rotation at right edge of screen fails for resizing (e.g. 400) (Ignoring and will do via webapp)
+# Optional - Screen size is not changing based on screen_height (ignoring for now)
+# Optional- Rotation at right edge of screen fails for resizing (e.g. 400) (Ignoring for now)
 
 # -------- 2. Machine Learning -------------------------
 # Want a neural network (DQN) with parameters that takes in the current state and returns a value 0 - 4
-# Initiation of parameters can be random initially but needs to be read from a File
+# Initiation of parameters can be random initially but needs to be read from a File. (Easily Done via Keras)
 # DONE - Moving based on that number is implemented (we have a brain but its an RNG...)
+# Done - Inputs should just be the state. Its an input now to the brain "makeamove"
+# DONE - Needs to take in the game state as an input
 # To Do - Populate based on a DQN not a Random number. Params Don't matter right not so will be crap.
-# Needs to take in the game state as an input
-# 1. Implement a DQN
-# 2. Use DQN to drive moves
-# 3. Train DQN
-# 4. Store, load, saved trained states and game
+
+# Initiation of parameters can be random initially but needs to be read from a File. (Easily Done via Keras)
+# 2a. Implement a DQN
+# 2b Read Params from file or create new set
+# 2c. Use DQN to drive moves
 
 # -------- 3. Machine Learning Training ----------------
-# Key Expectation for training is that this must ultimately be able to run without screen
-# (but can show the game progressing)
-# Can be considered a function that takes a seed, sequence of inputs and returns a score.
-# Will aim to wrap in a Reinforcement Learning Process for AI Tetris Player (but one step at a time...)
-# Incrementing of parameters is part of training and needs to be output as a File
+# 4a.Ideally training should be able to run without screen (but can show the game progressing) - Not Essential
+# 4b. This will take a 'step' as above but will then revise the params based on a reward function
+# 4c. Incrementing of parameters is part of training and needs to be output as a File
+# 4d. Store, load, saved trained states.
 
 # -------- 4. WebApp, Deployment and Cloud Storage/Compute ----------------
+# Pygame does not mix well with Docker, WebApps/Flask or potentially GCP.
+# To do this probably needs a re-architecture/re-design
+# Looks like will use pyinstaller to create a .exe and a wheel for distribution
+# more details at: https://packaging.python.org/overview/
 
 import time
 import sys
@@ -55,18 +60,22 @@ s = time.time()
 
 # Create Classes:
 class Brain:
-    def __init__(self, brainoutputoptions):
+    def __init__(self, brainoutputoptions, brainseed):
         self.Output_options = brainoutputoptions
         self.key = []
+        self.brainseed = brainseed
+        rng2 = np.random.RandomState(self.brainseed)
 
     # This is now receiving a state matrix of the game. This will be the inputs
-    # together with score level and number of tetrominos
+    # Together with score level and number of tetrominos
+    # There will be a reward mechanism here somehow and a retraining step
     def makeamove(self, inputstatematrix):
         keyboard.release(Key.space)
         keyboard.release(Key.right)
         keyboard.release(Key.left)
         keyboard.release(Key.down)
         keyboard.release('z')
+
         self.key = random.randint(0, self.Output_options)  # This single line is what will be replaced by the DQN
         if self.key == 0:
             keyboard.press(Key.space)
@@ -79,6 +88,9 @@ class Brain:
         elif self.key == 4:
             keyboard.press('z')
 
+    def updateDCNReward(self, inputstatematrix, score):
+        print("Optimising DCN")
+        return 1
 
 class GenericBrick(pygame.sprite.Sprite):
     def __init__(self, x, y, r, g, b, org):
@@ -430,13 +442,14 @@ class WallClass:
 
 class TetrisGame(pygame.sprite.Sprite):
     def __init__(self):
-        self.drop_Tetromino_speed = 500
+        self.drop_Tetromino_speed = 500 #Reduce this for a faster game espciially when in Machine Mode
         self.drop_Tetromino_speed_rate = 10
         self.level_speed_rate = 45
         self.FPS = 10
         self.screen_Caption = "Tetris"
         self.number_of_rows_with_no_downkey = 2
-        self.seed = 1234  # Can be randomised if needed
+        self.tetrominoseed = 1234  # Can be randomised if needed
+        self.brainseed = 1234  # Can be randomised if needed
         pygame.init()
         self.screen_dim = (screen_width, screen_height)  # Screen Size
         self.screen = pygame.display.set_mode(self.screen_dim)
@@ -451,13 +464,14 @@ class TetrisGame(pygame.sprite.Sprite):
         self.activeGame = False
         self.player = "Human"  # "Human"
         self.tetromino_Index = [0, 1, 2, 3, 4, 5, 6]
-        random.Random(self.seed).shuffle(self.tetromino_Index)
+        rng1 = np.random.RandomState(self.tetrominoseed)
+        rng1.shuffle(self.tetromino_Index)
         # Instantiate our Tetromino - A wall, a tetromino
         self.tetromino = Tetromino(self.tetromino_Index[0], False)
         self.ghost_tetromino = Tetromino(self.tetromino_Index[0], False)
         self.rotation_test_tetromino = Tetromino(self.tetromino_Index[0], False)
         self.tetris_Wall = WallClass()  # For drawing target location of Tetromino
-        self.brain = Brain(4)
+        self.brain = Brain(4, self.brainseed)
         super(TetrisGame, self).__init__()
 
     def handleevents(self):
@@ -502,8 +516,7 @@ class TetrisGame(pygame.sprite.Sprite):
         if pressed_keys[K_m]:
             # Instantiate our Tetromino for next game
             self.tetromino_Index = [0, 1, 2, 3, 4, 5, 6]
-            random.Random(self.seed).shuffle(self.tetromino_Index)
-            # random.shuffle(tetromino_Index)
+            random.Random(self.tetrominoseed).shuffle(self.tetromino_Index)
             self.tetromino = Tetromino(self.tetromino_Index[0], False)
             self.tetris_Wall = WallClass()
             self.score = 0
