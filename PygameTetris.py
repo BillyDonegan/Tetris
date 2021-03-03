@@ -17,6 +17,7 @@
 # DONE - Needs to take in the game state as an input
 # To Do - Populate based on a DQN not a Random number. Params Don't matter right not so will be crap.
 
+# -------- 2. DQN ----------------
 # Initiation of parameters can be random initially but needs to be read from a File. (Easily Done via Keras)
 # 2a. Implement a DQN
 # 2b Read Params from file or create new set
@@ -35,6 +36,8 @@
 # more details at: https://packaging.python.org/overview/
 
 import time
+# import tensorflow as tf
+from tensorflow import keras
 import sys
 import math
 import random
@@ -64,7 +67,14 @@ class Brain:
         self.Output_options = brainoutputoptions
         self.key = []
         self.brainseed = brainseed
-        rng2 = np.random.RandomState(self.brainseed)
+        self.rng2 = np.random.RandomState(self.brainseed)
+        # Let's build a DQN
+        # n_outputs = 1
+        model = keras.models.Sequential()
+        model.add(keras.layers.Flatten(input_shape=[number_of_rows, number_of_columns]))
+        model.add(keras.layers.Dense(300, activation="relu"))
+        model.add(keras.layers.Dense(100, activation="relu"))
+        model.add(keras.layers.Dense(10, activation="softmax"))
 
     # This is now receiving a state matrix of the game. This will be the inputs
     # Together with score level and number of tetrominos
@@ -76,7 +86,8 @@ class Brain:
         keyboard.release(Key.down)
         keyboard.release('z')
 
-        self.key = random.randint(0, self.Output_options)  # This single line is what will be replaced by the DQN
+        self.key = self.rng2.randint(0, self.Output_options)  # This single line is what will be replaced by the DQN
+
         if self.key == 0:
             keyboard.press(Key.space)
         elif self.key == 1:
@@ -464,8 +475,8 @@ class TetrisGame(pygame.sprite.Sprite):
         self.activeGame = False
         self.player = "Human"  # "Human"
         self.tetromino_Index = [0, 1, 2, 3, 4, 5, 6]
-        rng1 = np.random.RandomState(self.tetrominoseed)
-        rng1.shuffle(self.tetromino_Index)
+        self.rng1 = np.random.RandomState(self.tetrominoseed)
+        self.rng1.shuffle(self.tetromino_Index)
         # Instantiate our Tetromino - A wall, a tetromino
         self.tetromino = Tetromino(self.tetromino_Index[0], False)
         self.ghost_tetromino = Tetromino(self.tetromino_Index[0], False)
@@ -503,8 +514,7 @@ class TetrisGame(pygame.sprite.Sprite):
             keyboard.release('z')
             # Instantiate our Tetromino for next game
             self.tetromino_Index = [0, 1, 2, 3, 4, 5, 6]
-            random.Random(self.seed).shuffle(self.tetromino_Index)
-            # random.shuffle(tetromino_Index)
+            self.rng1.shuffle(self.tetromino_Index)
             self.tetromino = Tetromino(self.tetromino_Index[0], False)
             self.tetris_Wall = WallClass()
             self.score = 0
@@ -516,7 +526,7 @@ class TetrisGame(pygame.sprite.Sprite):
         if pressed_keys[K_m]:
             # Instantiate our Tetromino for next game
             self.tetromino_Index = [0, 1, 2, 3, 4, 5, 6]
-            random.Random(self.tetrominoseed).shuffle(self.tetromino_Index)
+            self.rng1.shuffle(self.tetromino_Index)
             self.tetromino = Tetromino(self.tetromino_Index[0], False)
             self.tetris_Wall = WallClass()
             self.score = 0
@@ -554,7 +564,7 @@ class TetrisGame(pygame.sprite.Sprite):
             tetromino_type = self.tetromino_Index[self.tetromino_Count % 7]
             self.tetromino = Tetromino(tetromino_type, False)
             if (self.tetromino_Count % 7) == 6:
-                random.Random().shuffle(self.tetromino_Index)
+                self.rng1.shuffle(self.tetromino_Index)
             for brick in self.tetromino.bricks:
                 for wallBrick in self.tetris_Wall.bricks:
                     if brick.rect.x == wallBrick.rect.x:
