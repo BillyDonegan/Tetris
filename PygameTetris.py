@@ -1,14 +1,15 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-# A Pygame Implementation of Tetris
+# A Pygame Reinforcement Learning Implementation of Tetris
 # Author: Billy Donegan (billydonegan76)
-# Date 25/02/2021
+# Date 03/03/2021
+#
 # To Do:
 # --------- 1. GAME ---------------------------
 # Optional - Add a ghost Tetromino (Ignoring for now)
 # Optional - Screen size is not changing based on screen_height (ignoring for now)
 # Optional- Rotation at right edge of screen fails for resizing (e.g. 400) (Ignoring for now)
-# NEW BUG - Rotate is not working. Not checking for wall block before rotation only checking edges.. Need to try/catch here.
+# TO DO: NEW BUG - Rotate is not working. Not checking for wall block before rotation only checking edge
 
 # -------- 2. Machine Learning -------------------------
 # DONE - Initiation of parameters can be random initially
@@ -16,14 +17,15 @@
 # DONE - Needs to take in the game state as an input
 
 # -------- 2. DQN ----------------
-# DONE - 2a. Implement a DQN (Initiation of parameters can be random initially)
-# DONE 2b. Use DQN to drive moves. This uses an epsilon-greedy algorithm
+# DONE - Implement a DQN (Initiation of parameters can be random initially)
+# DONE - Use DQN to drive moves. This uses an epsilon-greedy algorithm
 # 2c.  Read Params from file or create new set at initiation?
-# 2d.Extend inputs to include Tetromino x and ys not just state matrix so we can use "Wide and Deep"
-# DONE: Save down params and logs after each game. (Slight glitch where calling save twice)
+# DONE - Extend inputs to include Tetromino x and ys not just state matrix so we can use "Wide and Deep"
+# DONE - Save down model after game finishes (so we can callback)
+# 2f: Save down Game results and logs after game finishes (for TensorBoard)
 
 # -------- 3. Machine Learning Training ----------------
-# 4a.Ideally training should be able to run without screen (requires a re-factor) - Not Essential
+# 4a. Ideally training should be able to run without screen (requires a re-factor) - Not Essential
 # 4b. This will take a 'step' as above but will then revise the params based on a reward function
 # 4c. Incrementing of parameters is part of training and needs to be output as a File
 # 4d. Store, load, saved trained states.
@@ -54,7 +56,8 @@ number_of_rows = 40
 screen_width = int(screen_height / 4)
 tetromino_start_x = int(screen_width / 2) - int(screen_width / number_of_columns)
 tetromino_start_y = int(screen_height / number_of_rows)
-root_logdir = os.path.join(os.curdir, "Tetris_RL_Logs")
+root_logdir = os.path.join(os.curdir, "Tetris_RL_Model_Logs")
+root_resultdir = os.path.join(os.curdir, "Tetris_RL_Result_Logs")
 
 # Timers
 fpsclock = pygame.time.Clock()
@@ -67,16 +70,16 @@ class Brain:
         self.epsilon = 0.05
         self.outputs = brainoutputoptions
         # Let's build a DQN
-        self.model = keras.models.Sequential([
-            keras.layers.Dense(32, activation="elu", input_shape=[number_of_rows*number_of_columns]),
-            keras.layers.Dense(32, activation="elu"),
-            keras.layers.Dense(brainoutputoptions)
-        ])
+        input_ = keras.layers.Input(shape=[(number_of_rows*number_of_columns) + 8])
+        tetrominoinput_ = keras.layers.Input(shape=[8])
+        hidden1 = keras.layers.Dense(32, activation="relu")(input_)
+        hidden2 = keras.layers.Dense(32, activation="relu")(hidden1)
+        concat = keras.layers.Concatenate()([tetrominoinput_, hidden2])
+        output = keras.layers.Dense(brainoutputoptions)(concat)
+        self.model = keras.Model(inputs=[input_,tetrominoinput_], outputs=[output])
+        #self.model.compile(loss="mse", optimzer=keras.optimizers.SGD(lr=1e-3))
 
-    # This is now receiving a state matrix of the game. This will be the inputs
-    # Together with score level and number of tetrominos
-    # There will be a reward mechanism here somehow and a retraining step
-    def makeamove(self, inputstatematrix):
+    def makeamove(self, totalstatematrix, flattetrominostatematrix):
         keyboard.release(Key.space)
         keyboard.release(Key.right)
         keyboard.release(Key.left)
@@ -87,7 +90,8 @@ class Brain:
         if np.random.rand() < self.epsilon:
             outputdecision = np.random.randint(self.outputs)
         else:
-            q_values = self.model.predict(inputstatematrix[np.newaxis])
+            q_values = self.model.predict(totalstatematrix, flattetrominostatematrix) #THERE IS A PROBLEM HERE
+            print(q_values)
             outputdecision = np.argmax(q_values[0])
 
         # Make our Move
@@ -479,6 +483,7 @@ class TetrisGame(pygame.sprite.Sprite):
         self.level = 0
         self.paused = False
         self.activeGame = False
+        self.logssaved = False
         self.player = "Human"  # "Human"
         self.tetromino_Index = [0, 1, 2, 3, 4, 5, 6]
         self.rng1 = np.random.RandomState(self.tetrominoseed)
@@ -502,13 +507,20 @@ class TetrisGame(pygame.sprite.Sprite):
         if self.player == "Machine" and self.paused is False and self.activeGame is True:
             # Need to generate a vector or Matrix here of the Screen Status (0 - empty, 1 = wall or tetromino block)
             statematrix = np.zeros((number_of_rows, number_of_columns))
+            tetrominolist = []
             for brick in self.tetromino.bricks:
                 statematrix[int(brick.Ycoord / 20), int(brick.Xcoord / 20)] = 1
             for brick in self.tetris_Wall.bricks:
                 statematrix[int(brick.Ycoord / 20), int(brick.Xcoord / 20)] = 1
             flatstatematrix = statematrix.flatten()
-
-            self.brain.makeamove(flatstatematrix)
+            print(flatstatematrix)
+            for brick in self.tetromino.bricks:
+                tetrominolist.append(brick.Xcoord)
+                tetrominolist.append(brick.Ycoord)
+            tetrominostatematrix = np.array(tetrominolist)
+            flattetrominostatematrix = tetrominostatematrix.flatten()
+            totalstatematrix = np.concatenate((flatstatematrix, flattetrominostatematrix))
+            self.brain.makeamove(totalstatematrix,flattetrominostatematrix)
 
         # Handle inputs for the game and pass Tetromino moves to the Tetromino object
         pressed_keys = pygame.key.get_pressed()
@@ -527,6 +539,7 @@ class TetrisGame(pygame.sprite.Sprite):
             self.level = 0
             self.tetromino_Count = 0
             self.activeGame = True
+            self.logssaved = False
             self.player = "Human"
 
         if pressed_keys[K_m]:
@@ -562,10 +575,10 @@ class TetrisGame(pygame.sprite.Sprite):
                                            self.number_of_rows_with_no_downkey)
         score_candidate = self.tetris_Wall.clearlines(self.level, self.score)
         if score_candidate == -1:
-            # print("Game Over!")
-            # run_id = time.strftime("run_%Y_%m_%d-%H_%M_%S.h5")
-            # self.brain.model.save(run_id)
+            run_id = time.strftime("run_%Y_%m_%d-%H_%M_%S.h5")
+            self.brain.model.save(os.path.join(root_logdir, run_id))
             self.activeGame = False
+            self.logssaved = True
         else:
             self.score = score_candidate
 
@@ -580,9 +593,10 @@ class TetrisGame(pygame.sprite.Sprite):
                     if brick.rect.x == wallBrick.rect.x:
                         if brick.rect.y == wallBrick.rect.y:
                             self.tetromino.wallOverlap = True
-                            # print("Game Over!")
-                            # run_id = time.strftime("run_%Y_%m_%d-%H_%M_%S.h5")
-                            # self.brain.model.save(run_id)
+                            run_id = time.strftime("run_%Y_%m_%d-%H_%M_%S.h5")
+                            self.brain.model.save(os.path.join(root_logdir, run_id))
+                            self.brain.model.save(run_id)
+                            self.logssaved = True
                             self.activeGame = False
 
         # Redraw, so clear screen, fill background, redraw wall and redraw tetromino
