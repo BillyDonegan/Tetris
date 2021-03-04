@@ -4,24 +4,22 @@
 # Author: Billy Donegan (billydonegan76)
 # Date 25/02/2021
 # To Do:
-# --------- 1. GAME  3 Low priority changes Left ---------------------------
+# --------- 1. GAME ---------------------------
 # Optional - Add a ghost Tetromino (Ignoring for now)
 # Optional - Screen size is not changing based on screen_height (ignoring for now)
 # Optional- Rotation at right edge of screen fails for resizing (e.g. 400) (Ignoring for now)
 
 # -------- 2. Machine Learning -------------------------
-# Want a neural network (DQN) with parameters that takes in the current state and returns a value 0 - 4
-# Initiation of parameters can be random initially but needs to be read from a File. (Easily Done via Keras)
+# DONE - Initiation of parameters can be random initially
 # DONE - Moving based on that number is implemented (we have a brain but its an RNG...)
-# Done - Inputs should just be the state. Its an input now to the brain "makeamove"
 # DONE - Needs to take in the game state as an input
-# To Do - Populate based on a DQN not a Random number. Params Don't matter right not so will be crap.
 
 # -------- 2. DQN ----------------
-# Initiation of parameters can be random initially but needs to be read from a File. (Easily Done via Keras)
-# 2a. Implement a DQN
-# 2b Read Params from file or create new set
-# 2c. Use DQN to drive moves
+# DONE - 2a. Implement a DQN (Initiation of parameters can be random initially)
+# DONE 2b. Use DQN to drive moves. This uses an epsilon-greedy algorithm
+# 2c.  Read Params from file or create new set at initiation?
+# 2d.Extend inputs to include Tetromino x and ys not just state matrix so we can use "Wide and Deep"
+# Save down params and logs after each generation for TensorBoard
 
 # -------- 3. Machine Learning Training ----------------
 # 4a.Ideally training should be able to run without screen (requires a re-factor) - Not Essential
