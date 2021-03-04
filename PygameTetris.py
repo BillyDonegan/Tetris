@@ -8,6 +8,7 @@
 # Optional - Add a ghost Tetromino (Ignoring for now)
 # Optional - Screen size is not changing based on screen_height (ignoring for now)
 # Optional- Rotation at right edge of screen fails for resizing (e.g. 400) (Ignoring for now)
+# NEW BUG - If Rapidly rotating you can get an overlap after a drop ;(
 
 # -------- 2. Machine Learning -------------------------
 # DONE - Initiation of parameters can be random initially
@@ -19,7 +20,7 @@
 # DONE 2b. Use DQN to drive moves. This uses an epsilon-greedy algorithm
 # 2c.  Read Params from file or create new set at initiation?
 # 2d.Extend inputs to include Tetromino x and ys not just state matrix so we can use "Wide and Deep"
-# Save down params and logs after each generation for TensorBoard
+# DOEN: Save down params and logs after each game. (Slight glitch where calling save twice)
 
 # -------- 3. Machine Learning Training ----------------
 # 4a.Ideally training should be able to run without screen (requires a re-factor) - Not Essential
@@ -35,6 +36,7 @@
 
 import time
 # import tensorflow as tf
+import os
 from tensorflow import keras
 import sys
 import math
@@ -52,6 +54,7 @@ number_of_rows = 40
 screen_width = int(screen_height / 4)
 tetromino_start_x = int(screen_width / 2) - int(screen_width / number_of_columns)
 tetromino_start_y = int(screen_height / number_of_rows)
+root_logdir = os.path.join(os.curdir, "Tetris_RL_Logs")
 
 # Timers
 fpsclock = pygame.time.Clock()
@@ -74,7 +77,6 @@ class Brain:
     # Together with score level and number of tetrominos
     # There will be a reward mechanism here somehow and a retraining step
     def makeamove(self, inputstatematrix):
-        print(inputstatematrix.shape)
         keyboard.release(Key.space)
         keyboard.release(Key.right)
         keyboard.release(Key.left)
@@ -88,8 +90,7 @@ class Brain:
             Q_values = self.model.predict(inputstatematrix[np.newaxis])
             outputdecision = np.argmax(Q_values[0])
 
-        print(outputdecision)
-
+        #Make our Move
         if outputdecision == 0:
             keyboard.press(Key.space)
         elif outputdecision == 1:
@@ -559,6 +560,9 @@ class TetrisGame(pygame.sprite.Sprite):
                                            self.number_of_rows_with_no_downkey)
         score_candidate = self.tetris_Wall.clearlines(self.level, self.score)
         if score_candidate == -1:
+            print("Game Over!")
+            run_id = time.strftime("run_%Y_%m_%d-%H_%M_%S.h5")
+            self.brain.model.save(run_id)
             self.activeGame = False
         else:
             self.score = score_candidate
@@ -574,6 +578,9 @@ class TetrisGame(pygame.sprite.Sprite):
                     if brick.rect.x == wallBrick.rect.x:
                         if brick.rect.y == wallBrick.rect.y:
                             self.tetromino.wallOverlap = True
+                            print("Game Over!")
+                            run_id = time.strftime("run_%Y_%m_%d-%H_%M_%S.h5")
+                            self.brain.model.save(run_id)
                             self.activeGame = False
 
         # Redraw, so clear screen, fill background, redraw wall and redraw tetromino
@@ -616,7 +623,7 @@ class TetrisGame(pygame.sprite.Sprite):
             for brick in self.tetris_Wall.bricks:
                 self.screen.blit(brick.surf, brick.rect)
 
-    def updatepausedgame(self):
+    def restartscreen(self):
         oldscore = self.score
         oldlevel = self.level
         oldcount = self.tetromino_Count
@@ -669,7 +676,7 @@ def play_tetris():
         if tetrisgame.paused is False and tetrisgame.activeGame is True:
             tetrisgame.updateactivegame(pygame.key.get_pressed())
         elif not tetrisgame.activeGame:
-            tetrisgame.updatepausedgame()
+            tetrisgame.restartscreen()
 
         # Flip to newly drawn screen and increment clock
         pygame.display.flip()
