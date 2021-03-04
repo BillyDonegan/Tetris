@@ -24,7 +24,7 @@
 # 2c. Use DQN to drive moves
 
 # -------- 3. Machine Learning Training ----------------
-# 4a.Ideally training should be able to run without screen (but can show the game progressing) - Not Essential
+# 4a.Ideally training should be able to run without screen (requires a re-factor) - Not Essential
 # 4b. This will take a 'step' as above but will then revise the params based on a reward function
 # 4c. Incrementing of parameters is part of training and needs to be output as a File
 # 4d. Store, load, saved trained states.
@@ -40,7 +40,6 @@ import time
 from tensorflow import keras
 import sys
 import math
-import random
 import pygame
 import numpy as np
 from pygame.locals import *
@@ -64,44 +63,50 @@ s = time.time()
 # Create Classes:
 class Brain:
     def __init__(self, brainoutputoptions, brainseed):
-        self.Output_options = brainoutputoptions
-        self.key = []
-        self.brainseed = brainseed
-        self.rng2 = np.random.RandomState(self.brainseed)
+        self.epsilon = 0.05
+        self.outputs = brainoutputoptions
         # Let's build a DQN
-        # n_outputs = 1
-        model = keras.models.Sequential()
-        model.add(keras.layers.Flatten(input_shape=[number_of_rows, number_of_columns]))
-        model.add(keras.layers.Dense(300, activation="relu"))
-        model.add(keras.layers.Dense(100, activation="relu"))
-        model.add(keras.layers.Dense(10, activation="softmax"))
+        self.model = keras.models.Sequential([
+            keras.layers.Dense(32, activation="elu", input_shape = [number_of_rows*number_of_columns]),
+            keras.layers.Dense(32, activation="elu"),
+            keras.layers.Dense(brainoutputoptions)
+        ])
 
     # This is now receiving a state matrix of the game. This will be the inputs
     # Together with score level and number of tetrominos
     # There will be a reward mechanism here somehow and a retraining step
     def makeamove(self, inputstatematrix):
+        print(inputstatematrix.shape)
         keyboard.release(Key.space)
         keyboard.release(Key.right)
         keyboard.release(Key.left)
         keyboard.release(Key.down)
         keyboard.release('z')
 
-        self.key = self.rng2.randint(0, self.Output_options)  # This single line is what will be replaced by the DQN
+        #epsilon greedy algorithm
+        if np.random.rand() < self.epsilon:
+            outputdecision = np.random.randint(self.outputs)
+        else:
+            Q_values = self.model.predict(inputstatematrix[np.newaxis])
+            outputdecision = np.argmax(Q_values[0])
 
-        if self.key == 0:
+        print(outputdecision)
+
+        if outputdecision == 0:
             keyboard.press(Key.space)
-        elif self.key == 1:
+        elif outputdecision == 1:
             keyboard.press(Key.right)
-        elif self.key == 2:
+        elif outputdecision == 2:
             keyboard.press(Key.left)
-        elif self.key == 3:
+        elif outputdecision == 3:
             keyboard.press(Key.down)
-        elif self.key == 4:
+        elif outputdecision == 4:
             keyboard.press('z')
 
-    def updateDCNReward(self, inputstatematrix, score):
+    def updatedcnrreward(self, inputstatematrix, score):
         print("Optimising DCN")
         return 1
+
 
 class GenericBrick(pygame.sprite.Sprite):
     def __init__(self, x, y, r, g, b, org):
@@ -453,7 +458,7 @@ class WallClass:
 
 class TetrisGame(pygame.sprite.Sprite):
     def __init__(self):
-        self.drop_Tetromino_speed = 500 #Reduce this for a faster game espciially when in Machine Mode
+        self.drop_Tetromino_speed = 500  # Reduce this for a faster game espciially when in Machine Mode
         self.drop_Tetromino_speed_rate = 10
         self.level_speed_rate = 45
         self.FPS = 10
@@ -500,8 +505,9 @@ class TetrisGame(pygame.sprite.Sprite):
                 statematrix[int(brick.Ycoord / 20), int(brick.Xcoord / 20)] = 1
             for brick in self.tetris_Wall.bricks:
                 statematrix[int(brick.Ycoord / 20), int(brick.Xcoord / 20)] = 1
-            # print(statematrix)
-            self.brain.makeamove(statematrix)
+            flatstatematrix = statematrix.flatten()
+
+            self.brain.makeamove(flatstatematrix)
 
         # Handle inputs for the game and pass Tetromino moves to the Tetromino object
         pressed_keys = pygame.key.get_pressed()
