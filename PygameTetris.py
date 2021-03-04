@@ -8,7 +8,7 @@
 # Optional - Add a ghost Tetromino (Ignoring for now)
 # Optional - Screen size is not changing based on screen_height (ignoring for now)
 # Optional- Rotation at right edge of screen fails for resizing (e.g. 400) (Ignoring for now)
-# NEW BUG - If Rapidly rotating you can get an overlap after a drop ;(
+# NEW BUG - Rotate is not working. Not checking for wall block before rotation only checking edges.. Need to try/catch here.
 
 # -------- 2. Machine Learning -------------------------
 # DONE - Initiation of parameters can be random initially
@@ -20,7 +20,7 @@
 # DONE 2b. Use DQN to drive moves. This uses an epsilon-greedy algorithm
 # 2c.  Read Params from file or create new set at initiation?
 # 2d.Extend inputs to include Tetromino x and ys not just state matrix so we can use "Wide and Deep"
-# DOEN: Save down params and logs after each game. (Slight glitch where calling save twice)
+# DONE: Save down params and logs after each game. (Slight glitch where calling save twice)
 
 # -------- 3. Machine Learning Training ----------------
 # 4a.Ideally training should be able to run without screen (requires a re-factor) - Not Essential
@@ -63,12 +63,12 @@ s = time.time()
 
 # Create Classes:
 class Brain:
-    def __init__(self, brainoutputoptions, brainseed):
+    def __init__(self, brainoutputoptions):
         self.epsilon = 0.05
         self.outputs = brainoutputoptions
         # Let's build a DQN
         self.model = keras.models.Sequential([
-            keras.layers.Dense(32, activation="elu", input_shape = [number_of_rows*number_of_columns]),
+            keras.layers.Dense(32, activation="elu", input_shape=[number_of_rows*number_of_columns]),
             keras.layers.Dense(32, activation="elu"),
             keras.layers.Dense(brainoutputoptions)
         ])
@@ -83,14 +83,14 @@ class Brain:
         keyboard.release(Key.down)
         keyboard.release('z')
 
-        #epsilon greedy algorithm
+        # epsilon greedy algorithm
         if np.random.rand() < self.epsilon:
             outputdecision = np.random.randint(self.outputs)
         else:
-            Q_values = self.model.predict(inputstatematrix[np.newaxis])
-            outputdecision = np.argmax(Q_values[0])
+            q_values = self.model.predict(inputstatematrix[np.newaxis])
+            outputdecision = np.argmax(q_values[0])
 
-        #Make our Move
+        # Make our Move
         if outputdecision == 0:
             keyboard.press(Key.space)
         elif outputdecision == 1:
@@ -102,9 +102,9 @@ class Brain:
         elif outputdecision == 4:
             keyboard.press('z')
 
-    def updatedcnrreward(self, inputstatematrix, score):
-        print("Optimising DCN")
-        return 1
+    # def updatedcnrreward(self, inputstatematrix, score):
+        # print("Optimising DCN")
+        # return 1
 
 
 class GenericBrick(pygame.sprite.Sprite):
@@ -149,7 +149,7 @@ class Tetromino:
             self.rotationAngle = 270  # Just trigger a rotation to 0 to draw a new Tetromino in place.
             self.rotate()
 
-    def rotate(self):  # Calling this with 270 will draw a new piece
+    def rotate(self):  # Calling this with 270 will draw a new piece. THIS IS INCOMPLETE
         x = 0
         y = 0
         self.rotationAngle = (self.rotationAngle + 90) % 360
@@ -340,7 +340,6 @@ class Tetromino:
     def update(self, pressed_keys, wall, score, number_of_rows_with_no_downkey):
         self.leftEdge = False
         self.rightEdge = False
-
         # Left and Right also need something to stop them moving when they hit the bottom.
         if pressed_keys[K_LEFT]:
             for brick in self.bricks:
@@ -385,6 +384,8 @@ class Tetromino:
         return score
 
     def drop_tetromino(self, wall):
+        pygame.event.set_blocked(pygame.KEYDOWN)
+        pygame.event.set_blocked(pygame.KEYUP)
         for brick in self.bricks:
             if brick.bottom >= screen_height:
                 self.wallOverlap = True
@@ -401,6 +402,8 @@ class Tetromino:
                 brick.Ycoord = brick.Ycoord + int(screen_height / number_of_rows)
                 brick.rect.y = brick.Ycoord
                 brick.bottom = int(brick.Ycoord + screen_width / number_of_columns)
+        pygame.event.set_allowed(pygame.KEYDOWN)
+        pygame.event.set_allowed(pygame.KEYUP)
 
 
 class WallClass:
@@ -446,7 +449,6 @@ class WallClass:
         if len(self.completeRows) > 0:
             for rows in range(len(self.completeRows) - 1, -1, -1):
                 j = self.completeRows[rows] + 1
-                print(j)
                 for brick in self.bricks:
                     if brick.Ycoord < screen_height - j * int(screen_width / number_of_columns):
                         brick.Ycoord = brick.Ycoord + int(screen_height / number_of_rows)
@@ -457,7 +459,7 @@ class WallClass:
 
 class TetrisGame(pygame.sprite.Sprite):
     def __init__(self):
-        self.drop_Tetromino_speed = 500  # Reduce this for a faster game espciially when in Machine Mode
+        self.drop_Tetromino_speed = 500  # Reduce this for a faster game especially when in Machine Mode
         self.drop_Tetromino_speed_rate = 10
         self.level_speed_rate = 45
         self.FPS = 10
@@ -486,7 +488,7 @@ class TetrisGame(pygame.sprite.Sprite):
         self.ghost_tetromino = Tetromino(self.tetromino_Index[0], False)
         self.rotation_test_tetromino = Tetromino(self.tetromino_Index[0], False)
         self.tetris_Wall = WallClass()  # For drawing target location of Tetromino
-        self.brain = Brain(4, self.brainseed)
+        self.brain = Brain(4)
         super(TetrisGame, self).__init__()
 
     def handleevents(self):
@@ -510,7 +512,6 @@ class TetrisGame(pygame.sprite.Sprite):
 
         # Handle inputs for the game and pass Tetromino moves to the Tetromino object
         pressed_keys = pygame.key.get_pressed()
-        pygame.event.set_blocked(pygame.KEYDOWN)
         if pressed_keys[K_n]:
             keyboard.release(Key.space)
             keyboard.release(Key.right)
@@ -553,16 +554,17 @@ class TetrisGame(pygame.sprite.Sprite):
         if pressed_keys[K_e]:
             exit()
 
-        pygame.event.set_allowed(pygame.KEYDOWN)
-
     def updateactivegame(self, pressed_keys):
+        pygame.event.set_blocked(pygame.KEYUP)
+        pygame.event.set_blocked(pygame.KEYDOWN)
+
         self.score = self.tetromino.update(pressed_keys, self.tetris_Wall, self.score,
                                            self.number_of_rows_with_no_downkey)
         score_candidate = self.tetris_Wall.clearlines(self.level, self.score)
         if score_candidate == -1:
-            print("Game Over!")
-            run_id = time.strftime("run_%Y_%m_%d-%H_%M_%S.h5")
-            self.brain.model.save(run_id)
+            # print("Game Over!")
+            # run_id = time.strftime("run_%Y_%m_%d-%H_%M_%S.h5")
+            # self.brain.model.save(run_id)
             self.activeGame = False
         else:
             self.score = score_candidate
@@ -578,9 +580,9 @@ class TetrisGame(pygame.sprite.Sprite):
                     if brick.rect.x == wallBrick.rect.x:
                         if brick.rect.y == wallBrick.rect.y:
                             self.tetromino.wallOverlap = True
-                            print("Game Over!")
-                            run_id = time.strftime("run_%Y_%m_%d-%H_%M_%S.h5")
-                            self.brain.model.save(run_id)
+                            # print("Game Over!")
+                            # run_id = time.strftime("run_%Y_%m_%d-%H_%M_%S.h5")
+                            # self.brain.model.save(run_id)
                             self.activeGame = False
 
         # Redraw, so clear screen, fill background, redraw wall and redraw tetromino
@@ -622,6 +624,9 @@ class TetrisGame(pygame.sprite.Sprite):
                 self.screen.blit(brick.surf, brick.rect)
             for brick in self.tetris_Wall.bricks:
                 self.screen.blit(brick.surf, brick.rect)
+
+        pygame.event.set_allowed(pygame.KEYUP)
+        pygame.event.set_allowed(pygame.KEYDOWN)
 
     def restartscreen(self):
         oldscore = self.score
