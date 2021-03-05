@@ -67,26 +67,25 @@ s = time.time()
 # Create Classes:
 class Brain:
     def __init__(self, brainoutputoptions):
-        self.epsilon = 0.05
-        self.outputs = brainoutputoptions
-        # Let's build a DQN
-        # Let's build a DQN
-        self.model = keras.models.Sequential([
-            keras.layers.Dense(32, activation="elu", input_shape=[(number_of_rows * number_of_columns) + 8]),
-            keras.layers.Dense(32, activation="elu"),
-            keras.layers.Dense(brainoutputoptions)
-        ])
-        # input_ = keras.layers.Input(shape=[(number_of_rows * number_of_columns) + 8])
-        # input_ = keras.layers.Input(shape=[number_of_rows*number_of_columns])
-        # tetrominoinput_ = keras.layers.Input(shape=[8])
-        # hidden1 = keras.layers.Dense(32, activation="relu")(input_)
-        # hidden2 = keras.layers.Dense(32, activation="relu")(hidden1)
-        # concat = keras.layers.Concatenate()([tetrominoinput_, hidden2])
-        # output = keras.layers.Dense(brainoutputoptions)(concat)
-        # output = keras.layers.Dense(brainoutputoptions)(hidden2)
-        # self.model = keras.Model(inputs=[input_,tetrominoinput_], outputs=[output])
-        # self.model = keras.Model(inputs=[input_], outputs=[output])
-        #self.model.compile(loss="mse", optimzer=keras.optimizers.SGD(lr=1e-3))
+        self.epsilon = 0.05 #This is the epsilon for the greedy algorithm.
+        # This % of the time a random move will be taken over the NN selection to prevent local minimums
+        self.outputs = brainoutputoptions #5 possible outputs
+
+        # Let's build a wide and deep DQN (Using Keras Functional API)
+        # Current State is:
+        # Inputs are as 0/1 state matrix of each block on screen AND the x.y positions of the tetromino
+        # We pass the tetromino details in twice once for the initial input
+        # Secondly so it can be passed into the last concat layer so it retains influence
+        # Two hidden layers with 300 neurons each all using relu
+        # A concat layer to persist the tetromino pattern
+        # Finally a softmax output to specify which button to press
+        input_ = keras.layers.Input(shape=[(number_of_rows * number_of_columns) + 8])
+        tetrominoinput_ = keras.layers.Input(shape=[8])
+        hidden1 = keras.layers.Dense(300, activation="relu")(input_)
+        hidden2 = keras.layers.Dense(300, activation="relu")(hidden1)
+        concat = keras.layers.Concatenate()([tetrominoinput_, hidden2])
+        output = keras.layers.Dense(brainoutputoptions, activation="softmax")(concat)
+        self.model = keras.Model(inputs=[input_,tetrominoinput_], outputs=[output])
 
     def makeamove(self, totalstatematrix, flattetrominostatematrix):
         keyboard.release(Key.space)
@@ -96,12 +95,10 @@ class Brain:
         keyboard.release('z')
 
         # epsilon greedy algorithm
-        if np.random.rand() < self.epsilon:
+        if np.random.rand() < self.epsilon: # Make a random move epsilon of the time
             outputdecision = np.random.randint(self.outputs)
-        else:
-            #q_values = self.model.predict([totalstatematrix, flattetrominostatematrix]) #THERE IS A PROBLEM HERE
-            q_values = self.model.predict(totalstatematrix[np.newaxis])
-            print(q_values)
+        else: # Make a move as specified by the DQN
+            q_values = self.model.predict((totalstatematrix[np.newaxis], flattetrominostatematrix[np.newaxis])) #THERE IS A PROBLEM HERE
             outputdecision = np.argmax(q_values[0])
 
         # Make our Move
@@ -503,7 +500,7 @@ class TetrisGame(pygame.sprite.Sprite):
         self.ghost_tetromino = Tetromino(self.tetromino_Index[0], False)
         self.rotation_test_tetromino = Tetromino(self.tetromino_Index[0], False)
         self.tetris_Wall = WallClass()  # For drawing target location of Tetromino
-        self.brain = Brain(4)
+        self.brain = Brain(5)
         super(TetrisGame, self).__init__()
 
     def handleevents(self):
@@ -515,21 +512,29 @@ class TetrisGame(pygame.sprite.Sprite):
                 self.tetromino.drop_tetromino(self.tetris_Wall)
 
         if self.player == "Machine" and self.paused is False and self.activeGame is True:
-            # Need to generate a vector or Matrix here of the Screen Status (0 - empty, 1 = wall or tetromino block)
+            # Need to generate a flattened array here of the Screen Status (0 - empty, 1 = wall or tetromino block)
+            # Also generating a flattened array of the Tetromino x,y cooords
             statematrix = np.zeros((number_of_rows, number_of_columns))
             tetrominolist = []
+
+            # Generate Wall State Matrix (including Tetromino)
             for brick in self.tetromino.bricks:
                 statematrix[int(brick.Ycoord / 20), int(brick.Xcoord / 20)] = 1
             for brick in self.tetris_Wall.bricks:
                 statematrix[int(brick.Ycoord / 20), int(brick.Xcoord / 20)] = 1
             flatstatematrix = statematrix.flatten()
-            print(flatstatematrix)
+
+            #Generate Tetromino State
             for brick in self.tetromino.bricks:
                 tetrominolist.append(brick.Xcoord)
                 tetrominolist.append(brick.Ycoord)
+
+            #Flatten and append
             tetrominostatematrix = np.array(tetrominolist)
             flattetrominostatematrix = tetrominostatematrix.flatten()
             totalstatematrix = np.concatenate((flatstatematrix, flattetrominostatematrix))
+
+            #Pass to DQN to make a move
             self.brain.makeamove(totalstatematrix,flattetrominostatematrix)
 
         # Handle inputs for the game and pass Tetromino moves to the Tetromino object
