@@ -37,7 +37,7 @@
 # more details at: https://packaging.python.org/overview/
 
 import time
-# import tensorflow as tf
+import tensorflow as tf
 import os
 from tensorflow import keras
 import sys
@@ -70,13 +70,22 @@ class Brain:
         self.epsilon = 0.05
         self.outputs = brainoutputoptions
         # Let's build a DQN
-        input_ = keras.layers.Input(shape=[(number_of_rows*number_of_columns) + 8])
-        tetrominoinput_ = keras.layers.Input(shape=[8])
-        hidden1 = keras.layers.Dense(32, activation="relu")(input_)
-        hidden2 = keras.layers.Dense(32, activation="relu")(hidden1)
-        concat = keras.layers.Concatenate()([tetrominoinput_, hidden2])
-        output = keras.layers.Dense(brainoutputoptions)(concat)
-        self.model = keras.Model(inputs=[input_,tetrominoinput_], outputs=[output])
+        # Let's build a DQN
+        self.model = keras.models.Sequential([
+            keras.layers.Dense(32, activation="elu", input_shape=[(number_of_rows * number_of_columns) + 8]),
+            keras.layers.Dense(32, activation="elu"),
+            keras.layers.Dense(brainoutputoptions)
+        ])
+        # input_ = keras.layers.Input(shape=[(number_of_rows * number_of_columns) + 8])
+        # input_ = keras.layers.Input(shape=[number_of_rows*number_of_columns])
+        # tetrominoinput_ = keras.layers.Input(shape=[8])
+        # hidden1 = keras.layers.Dense(32, activation="relu")(input_)
+        # hidden2 = keras.layers.Dense(32, activation="relu")(hidden1)
+        # concat = keras.layers.Concatenate()([tetrominoinput_, hidden2])
+        # output = keras.layers.Dense(brainoutputoptions)(concat)
+        # output = keras.layers.Dense(brainoutputoptions)(hidden2)
+        # self.model = keras.Model(inputs=[input_,tetrominoinput_], outputs=[output])
+        # self.model = keras.Model(inputs=[input_], outputs=[output])
         #self.model.compile(loss="mse", optimzer=keras.optimizers.SGD(lr=1e-3))
 
     def makeamove(self, totalstatematrix, flattetrominostatematrix):
@@ -90,7 +99,8 @@ class Brain:
         if np.random.rand() < self.epsilon:
             outputdecision = np.random.randint(self.outputs)
         else:
-            q_values = self.model.predict(totalstatematrix, flattetrominostatematrix) #THERE IS A PROBLEM HERE
+            #q_values = self.model.predict([totalstatematrix, flattetrominostatematrix]) #THERE IS A PROBLEM HERE
+            q_values = self.model.predict(totalstatematrix[np.newaxis])
             print(q_values)
             outputdecision = np.argmax(q_values[0])
 
