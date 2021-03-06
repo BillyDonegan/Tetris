@@ -24,10 +24,11 @@
 # DONE - Save down model after game finishes (so we can callback)
 
 # -------- 3. Machine Learning Training ----------------
-# 4a. Implement deque to store results (need to get the score right and the boolean for game over)
+# DONE - Implement deque to store results (need to get the score right and the boolean for game over)
+# Done - Implement Training Mode, which re-runs machines to a total number
 # 4a. Give Option to read model from file or create new set at initiation?
-# 4b. Save down logs after game finishes
-# 4c. Ideally training should be able to run without screen (requires a re-factor) - Not Essential
+# 4b. Save down logs (not just model) after game finishes
+# 4c. Ideally training should be able to run without screen (or speed up game speed) - Not Essential
 # 4d. This will take a 'step' as above but will then revise the params based on a reward function
 # 4e. Incrementing of parameters is part of training and needs to be output as a File
 
@@ -59,73 +60,11 @@ tetromino_start_x = int(screen_width / 2) - int(screen_width / number_of_columns
 tetromino_start_y = int(screen_height / number_of_rows)
 root_logdir = os.path.join(os.curdir, "Tetris_RL_Model_Logs")
 root_resultdir = os.path.join(os.curdir, "Tetris_RL_Result_Logs")
-
 # Timers
 fpsclock = pygame.time.Clock()
-s = time.time()
+
 
 # Create Classes:
-
-
-class Brain:
-    def __init__(self, brainoutputoptions):
-        self.epsilon = 0.05  # This is the epsilon for the greedy algorithm.
-        # This % of the time a random move will be taken over the NN selection to prevent local minimums
-        self.outputs = brainoutputoptions  # 5 possible outputs
-
-        # Let's build a wide and deep DQN (Using Keras Functional API)
-        # Current State is:
-        # Inputs are as 0/1 state matrix of each block on screen AND the x.y positions of the tetromino
-        # We pass the tetromino details in twice once for the initial input
-        # Secondly so it can be passed into the last concat layer so it retains influence
-        # Two hidden layers with 300 neurons each all using relu
-        # A concat layer to persist the tetromino pattern
-        # Finally a softmax output to specify which button to press
-        input_ = keras.layers.Input(shape=[(number_of_rows * number_of_columns) + 8])
-        tetrominoinput_ = keras.layers.Input(shape=[8])
-        hidden1 = keras.layers.Dense(300, activation="relu")(input_)
-        hidden2 = keras.layers.Dense(300, activation="relu")(hidden1)
-        concat = keras.layers.Concatenate()([tetrominoinput_, hidden2])
-        output = keras.layers.Dense(brainoutputoptions, activation="softmax")(concat)
-        self.model = keras.Model(inputs=[input_, tetrominoinput_], outputs=[output])
-
-    def makeamove(self, totalstatematrix, flattetrominostatematrix):
-        keyboard.release(Key.space)
-        keyboard.release(Key.right)
-        keyboard.release(Key.left)
-        keyboard.release(Key.down)
-        keyboard.release('z')
-
-        # epsilon greedy algorithm
-        if np.random.rand() < self.epsilon:  # Make a random move epsilon of the time
-            outputdecision = np.random.randint(self.outputs)
-        else:  # Make a move as specified by the DQN
-            q_values = self.model.predict((totalstatematrix[np.newaxis], flattetrominostatematrix[np.newaxis]))
-            outputdecision = np.argmax(q_values[0])
-
-        # Make our Move
-        if outputdecision == 0:
-            keyboard.press(Key.space)
-        elif outputdecision == 1:
-            keyboard.press(Key.right)
-        elif outputdecision == 2:
-            keyboard.press(Key.left)
-        elif outputdecision == 3:
-            keyboard.press(Key.down)
-        elif outputdecision == 4:
-            keyboard.press('z')
-
-        return outputdecision
-
-    # def updatedcnrreward(self, inputstatematrix, score):
-        # need to store all moves in game somehow
-        # Then at the end we keep the game score and results
-        # Additional things we need to in training.
-        # Increase episode count
-        # Consider decreasing epsilon
-        # print("Optimising DCN")
-        # return 1
-
 
 class GenericBrick(pygame.sprite.Sprite):
     def __init__(self, x, y, r, g, b, org):
@@ -404,6 +343,7 @@ class Tetromino:
         return score
 
     def drop_tetromino(self, wall):
+        #Stop handling inputs until this is done
         pygame.event.set_blocked(pygame.KEYDOWN)
         pygame.event.set_blocked(pygame.KEYUP)
         for brick in self.bricks:
@@ -477,12 +417,74 @@ class WallClass:
         return score
 
 
-class TetrisGame(pygame.sprite.Sprite):
+class Brain:
+    def __init__(self, brainoutputoptions):
+        self.epsilon = 0.05  # This is the epsilon for the greedy algorithm.
+        # This % of the time a random move will be taken over the NN selection to prevent local minimums
+        self.outputs = brainoutputoptions  # 5 possible outputs
+
+        # Let's build a wide and deep DQN (Using Keras Functional API)
+        # Current State is:
+        # Inputs are as 0/1 state matrix of each block on screen AND the x.y positions of the tetromino
+        # We pass the tetromino details in twice once for the initial input
+        # Secondly so it can be passed into the last concat layer so it retains influence
+        # Two hidden layers with 300 neurons each all using relu
+        # A concat layer to persist the tetromino pattern
+        # Finally a softmax output to specify which button to press
+        input_ = keras.layers.Input(shape=[(number_of_rows * number_of_columns) + 8])
+        tetrominoinput_ = keras.layers.Input(shape=[8])
+        hidden1 = keras.layers.Dense(300, activation="relu")(input_)
+        hidden2 = keras.layers.Dense(300, activation="relu")(hidden1)
+        concat = keras.layers.Concatenate()([tetrominoinput_, hidden2])
+        output = keras.layers.Dense(brainoutputoptions, activation="softmax")(concat)
+        self.model = keras.Model(inputs=[input_, tetrominoinput_], outputs=[output])
+
+    def makeamove(self, totalstatematrix, flattetrominostatematrix):
+        keyboard.release(Key.space)
+        keyboard.release(Key.right)
+        keyboard.release(Key.left)
+        keyboard.release(Key.down)
+        keyboard.release('z')
+
+        # epsilon greedy algorithm
+        if np.random.rand() < self.epsilon:  # Make a random move epsilon of the time
+            outputdecision = np.random.randint(self.outputs)
+        else:  # Make a move as specified by the DQN
+            q_values = self.model.predict((totalstatematrix[np.newaxis], flattetrominostatematrix[np.newaxis]))
+            outputdecision = np.argmax(q_values[0])
+
+        # Make our Move
+        if outputdecision == 0:
+            keyboard.press(Key.space)
+        elif outputdecision == 1:
+            keyboard.press(Key.right)
+        elif outputdecision == 2:
+            keyboard.press(Key.left)
+        elif outputdecision == 3:
+            keyboard.press(Key.down)
+        elif outputdecision == 4:
+            keyboard.press('z')
+
+        return outputdecision
+
+    # def updatedcnrreward(self, inputstatematrix, score):
+        # need to store all moves in game somehow
+        # Then at the end we keep the game score and results
+        # Additional things we need to in training.
+        # Increase episode count
+        # Consider decreasing epsilon
+        # print("Optimising DCN")
+        # return 1
+
+
+class TetrisApp(pygame.sprite.Sprite):
     def __init__(self):
+        #Graphics Params
         self.drop_Tetromino_speed = 500  # Reduce this for a faster game especially when in Machine Mode
         self.drop_Tetromino_speed_rate = 10
         self.level_speed_rate = 45
         self.FPS = 10
+        self.s = time.time()
         self.screen_Caption = "Tetris"
         self.number_of_rows_with_no_downkey = 2
         self.tetrominoseed = 1234  # Can be randomised if needed
@@ -497,23 +499,24 @@ class TetrisGame(pygame.sprite.Sprite):
         self.tetromino_Count = 0
         self.score = 0
         self.level = 0
-        self.paused = False
-        self.activeGame = False
-        self.logssaved = False
-        self.player = "Human"  # "Human"
+        self.gamesplayed = 0
         self.tetromino_Index = [0, 1, 2, 3, 4, 5, 6]
         self.rng1 = np.random.RandomState(self.tetrominoseed)
         self.rng1.shuffle(self.tetromino_Index)
+
         # Instantiate our Tetromino - A wall, a tetromino
         self.tetromino = Tetromino(self.tetromino_Index[0], False)
-        self.ghost_tetromino = Tetromino(self.tetromino_Index[0], False)
-        self.rotation_test_tetromino = Tetromino(self.tetromino_Index[0], False)
         self.tetris_Wall = WallClass()  # For drawing target location of Tetromino
         self.brain = Brain(5)
         self.replay_buffer = deque(maxlen=2000)
-        self.gamesplayed = 0
+
+        #Boolean Flags
+        self.player = "Human"  # "Human"
+        self.paused = False
+        self.activeGame = False
+        self.logssaved = False
         self.training = False
-        super(TetrisGame, self).__init__()
+        super(TetrisApp, self).__init__()
 
     def handleevents(self):
         # Handle Quit and drop timer
@@ -532,6 +535,7 @@ class TetrisGame(pygame.sprite.Sprite):
             keyboard.release(Key.down)
             keyboard.release('z')
             # Instantiate our Tetromino for next game
+            self.s = time.time()
             self.tetromino_Index = [0, 1, 2, 3, 4, 5, 6]
             self.rng1.shuffle(self.tetromino_Index)
             self.tetromino = Tetromino(self.tetromino_Index[0], False)
@@ -545,6 +549,7 @@ class TetrisGame(pygame.sprite.Sprite):
 
         if pressed_keys[K_m]:
             # Instantiate our Tetromino for next game
+            self.s = time.time()
             self.tetromino_Index = [0, 1, 2, 3, 4, 5, 6]
             self.rng1.shuffle(self.tetromino_Index)
             self.tetromino = Tetromino(self.tetromino_Index[0], False)
@@ -557,9 +562,18 @@ class TetrisGame(pygame.sprite.Sprite):
 
         if pressed_keys[K_t]:
             print("We will now run 1000 iterations of the game to train the model")
+            # Instantiate our Tetromino for next game
+            self.s = time.time()
+            self.tetromino_Index = [0, 1, 2, 3, 4, 5, 6]
+            self.rng1.shuffle(self.tetromino_Index)
+            self.tetromino = Tetromino(self.tetromino_Index[0], False)
+            self.tetris_Wall = WallClass()
+            self.score = 0
+            self.level = 0
+            self.tetromino_Count = 0
             self.activeGame = True
-            self.training = True
             self.player = "Machine"
+            self.training = True
 
         if pressed_keys[K_p]:
             self.paused = not self.paused
@@ -573,20 +587,27 @@ class TetrisGame(pygame.sprite.Sprite):
         if self.paused is False and self.activeGame is True:
             self.updateactivegame(pressed_keys)
         elif not self.activeGame:
-            self.restartscreen()
-            # if self.training:
-                #while self.gamesplayed < 3:
-                #    self.gamesplayed = self.gamesplayed + 1
-                #    # Instantiate our Tetromino for next game
-                #    self.tetromino_Index = [0, 1, 2, 3, 4, 5, 6]
-                #    self.rng1.shuffle(self.tetromino_Index)
-                #    self.tetromino = Tetromino(self.tetromino_Index[0], False)
-                #    self.tetris_Wall = WallClass()
-                #    self.score = 0
-                #    self.level = 0
-                #    self.tetromino_Count = 0
-                #    self.activeGame = True
-                #    self.player = "Machine"
+            if self.training is True and self.gamesplayed < 3:
+                #This is not working correctly for levels
+                self.s = time.time()
+                self.drop_Tetromino_speed = 500  # Reduce this for a faster game especially when in Machine Mode
+                self.drop_Tetromino_speed_rate = 10
+                self.level_speed_rate = 45
+                self.FPS = 10
+                self.gamesplayed = self.gamesplayed + 1
+                self.tetromino_Index = [0, 1, 2, 3, 4, 5, 6]
+                self.rng1.shuffle(self.tetromino_Index)
+                self.tetromino = Tetromino(self.tetromino_Index[0], False)
+                self.tetris_Wall = WallClass()
+                self.score = 0
+                self.level = 0
+                self.tetromino_Count = 0
+                self.activeGame = True
+                self.player = "Machine"
+                self.training = True
+                pygame.time.set_timer(self.drop_Tetromino, self.drop_Tetromino_speed)
+            else:
+                self.restartscreen()
 
     def updateactivegame(self, pressed_keys):
         if self.player == "Machine" and self.paused is False and self.activeGame is True:
@@ -656,12 +677,12 @@ class TetrisGame(pygame.sprite.Sprite):
         msg_image = f.render(msg, True, msg_color, None)
         scoresurf = pygame.Surface((20, 5), pygame.SRCALPHA, 32)
         scorerect = scoresurf.get_rect()
-        scorerect.x = 100
+        scorerect.x = 125
         scorerect.y = 0
         self.screen.blit(msg_image, scorerect)
 
         # Display Level
-        if math.floor(int(time.time() - s) / int(self.level_speed_rate)) > self.level:
+        if math.floor(int(time.time() - self.s) / int(self.level_speed_rate)) > self.level:
             self.level += 1
             self.drop_Tetromino_speed -= self.drop_Tetromino_speed_rate
             pygame.time.set_timer(self.drop_Tetromino, max(self.drop_Tetromino_speed, 1))
@@ -676,6 +697,18 @@ class TetrisGame(pygame.sprite.Sprite):
         levelrect.y = 0
         self.screen.blit(level_msg_image, levelrect)
 
+        # Display Score
+        if self.training is True:
+            msg = "Game: " + str(self.gamesplayed)
+            msg_color = (0, 255, 255)
+            f = pygame.font.SysFont('arial', 12)
+            msg_image = f.render(msg, True, msg_color, None)
+            gamessurf = pygame.Surface((20, 5), pygame.SRCALPHA, 32)
+            gamesrect = gamessurf.get_rect()
+            gamesrect.x = 75
+            gamesrect.y = 0
+            self.screen.blit(msg_image, gamesrect)
+
         # Draw Bricks and Draw Wall
         if self.activeGame is True:
             for brick in self.tetromino.bricks:
@@ -686,27 +719,29 @@ class TetrisGame(pygame.sprite.Sprite):
                 self.screen.blit(brick.surf, brick.rect)
 
         # Creating the Post state matrices
-        poststatematrix = np.zeros((number_of_rows, number_of_columns))
-        posttetrominolist = []
+        if self.player == "Machine" and self.paused is False and self.activeGame is True:
+            poststatematrix = np.zeros((number_of_rows, number_of_columns))
+            posttetrominolist = []
 
-        # Generate Wall State Matrix (including Tetromino)
-        for brick in self.tetromino.bricks:
-            poststatematrix[int(brick.Ycoord / 20), int(brick.Xcoord / 20)] = 1
-        for brick in self.tetris_Wall.bricks:
-            poststatematrix[int(brick.Ycoord / 20), int(brick.Xcoord / 20)] = 1
-        postflatstatematrix = poststatematrix.flatten()
+            # Generate Wall State Matrix (including Tetromino)
+            for brick in self.tetromino.bricks:
+                poststatematrix[int(brick.Ycoord / 20), int(brick.Xcoord / 20)] = 1
+            for brick in self.tetris_Wall.bricks:
+                poststatematrix[int(brick.Ycoord / 20), int(brick.Xcoord / 20)] = 1
+            postflatstatematrix = poststatematrix.flatten()
 
-        # Generate Tetromino State
-        for brick in self.tetromino.bricks:
-            posttetrominolist.append(brick.Xcoord)
-            posttetrominolist.append(brick.Ycoord)
+            # Generate Tetromino State
+            for brick in self.tetromino.bricks:
+                posttetrominolist.append(brick.Xcoord)
+                posttetrominolist.append(brick.Ycoord)
 
-        # Flatten and append
-        posttetrominostatematrix = np.array(posttetrominolist)
-        postflattetrominostatematrix = posttetrominostatematrix.flatten()
-        posttotalstatematrix = np.concatenate((postflatstatematrix, postflattetrominostatematrix))
+            # Flatten and append
+            posttetrominostatematrix = np.array(posttetrominolist)
+            postflattetrominostatematrix = posttetrominostatematrix.flatten()
+            posttotalstatematrix = np.concatenate((postflatstatematrix, postflattetrominostatematrix))
 
-        self.replay_buffer.append(((flatstatematrix[np.newaxis], flattetrominostatematrix[np.newaxis]), brainbuttonpress, self.score - previousscore, (posttotalstatematrix[np.newaxis], postflattetrominostatematrix[np.newaxis]), not(self.activeGame)))
+            self.replay_buffer.append(((flatstatematrix[np.newaxis], flattetrominostatematrix[np.newaxis]), brainbuttonpress, self.score - previousscore, (posttotalstatematrix[np.newaxis], postflattetrominostatematrix[np.newaxis]), not(self.activeGame)))
+
         pygame.event.set_allowed(pygame.KEYUP)
         pygame.event.set_allowed(pygame.KEYDOWN)
 
@@ -715,7 +750,7 @@ class TetrisGame(pygame.sprite.Sprite):
         oldlevel = self.level
         oldcount = self.tetromino_Count
         self.screen.fill(self.screen_bg_colour)
-        start_msg1 = "TETRIS: (N)ew/(M)achine/(T)rain"
+        start_msg1 = "(N)ew/(M)achine/(T)rain"
         start_msg1_color = (255, 0, 0)
         start_msg2 = "Tetrominos: " + str(oldcount)
         start_msg2_color = (255, 255, 255)
@@ -737,7 +772,6 @@ class TetrisGame(pygame.sprite.Sprite):
         startrect2 = startsurf2.get_rect()
         startrect3 = startsurf3.get_rect()
         startrect4 = startsurf4.get_rect()
-
         startrect1.x = 10
         startrect1.y = 400
         self.screen.blit(start_msg1_image, startrect1)
@@ -755,12 +789,12 @@ class TetrisGame(pygame.sprite.Sprite):
 
 
 def play_tetris():
-    tetrisgame = TetrisGame()
+    tetrisapp = TetrisApp()
     # Main Program Loop
     while True:
-        tetrisgame.handleevents()
+        tetrisapp.handleevents()
         pygame.display.flip()
-        fpsclock.tick(tetrisgame.FPS)
+        fpsclock.tick(tetrisapp.FPS)
 
 # Start Game
 
