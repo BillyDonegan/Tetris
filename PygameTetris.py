@@ -10,6 +10,7 @@
 # Optional - Screen size is not changing based on screen_height (ignoring for now)
 # Optional- Rotation at right edge of screen fails for resizing (e.g. 400) (Ignoring for now)
 # TO DO: NEW BUG - Rotate is not working. Not checking for wall block before rotation only checking edge
+# TO DO: NEW BUG - Still some issues at top level with overlaps (Might be resolved by above or else a try/catch)
 # TO DO: Refactor? to seperate graphics from the game.
 
 # -------- 2. Machine Learning -------------------------
@@ -26,11 +27,11 @@
 # -------- 3. Machine Learning Training ----------------
 # DONE - Implement deque to store results (need to get the score right and the boolean for game over)
 # Done - Implement Training Mode, which re-runs machines to a total number
-# 4a. Give Option to read model from file or create new set at initiation?
+# DONE - Give Option to read model from file or create new set at initiation? (Use LatestTrainedModel.h5 if it exists)
+# DONE - Include Deque when saving after training sequence and load that too
 # 4b. Save down logs (not just model) after game finishes
-# 4c. Ideally training should be able to run without screen (or speed up game speed) - Not Essential
-# 4d. This will take a 'step' as above but will then revise the params based on a reward function
-# 4e. Incrementing of parameters is part of training and needs to be output as a File
+# 4c. The  big step is to update model after each game. Need to think about parameter here for the deque, the layers
+# and the batch sizes for updates.
 
 # -------- 4. WebApp, Deployment and Cloud Storage/Compute ----------------
 # Pygame does not mix well with Docker, WebApps/Flask or potentially GCP.
@@ -46,9 +47,11 @@ import sys
 import math
 import pygame
 import numpy as np
+import pickle
 from pygame.locals import *
 from pynput.keyboard import Key, Controller
 from collections import deque
+
 
 # Global Variables - Should Not Change
 keyboard = Controller()
@@ -109,6 +112,10 @@ class Tetromino:
             self.rotate()
 
     def rotate(self):  # Calling this with 270 will draw a new piece. THIS IS INCOMPLETE
+        # Stop handling inputs until this is done
+        pygame.event.set_blocked(pygame.KEYDOWN)
+        pygame.event.set_blocked(pygame.KEYUP)
+
         x = 0
         y = 0
         self.rotationAngle = (self.rotationAngle + 90) % 360
@@ -295,8 +302,14 @@ class Tetromino:
                 self.bricks.append(GenericBrick(x, y + 1 * int(screen_height / number_of_rows), 0, 0, 255, False))
                 self.bricks.append(GenericBrick(x - int(screen_width / number_of_columns),
                                                 y + 1 * int(screen_height / number_of_rows), 0, 0, 255, False))
+        pygame.event.set_allowed(pygame.KEYDOWN)
+        pygame.event.set_allowed(pygame.KEYUP)
 
     def update(self, pressed_keys, wall, score, number_of_rows_with_no_downkey):
+        # Stop handling inputs until this is done
+        pygame.event.set_blocked(pygame.KEYDOWN)
+        pygame.event.set_blocked(pygame.KEYUP)
+
         self.leftEdge = False
         self.rightEdge = False
         # Left and Right also need something to stop them moving when they hit the bottom.
@@ -339,11 +352,12 @@ class Tetromino:
         if pressed_keys[K_z]:
             self.drop_tetromino(wall)
             score += 1
-
+        pygame.event.set_allowed(pygame.KEYDOWN)
+        pygame.event.set_allowed(pygame.KEYUP)
         return score
 
     def drop_tetromino(self, wall):
-        #Stop handling inputs until this is done
+        # Stop handling inputs until this is done
         pygame.event.set_blocked(pygame.KEYDOWN)
         pygame.event.set_blocked(pygame.KEYUP)
         for brick in self.bricks:
@@ -423,21 +437,27 @@ class Brain:
         # This % of the time a random move will be taken over the NN selection to prevent local minimums
         self.outputs = brainoutputoptions  # 5 possible outputs
 
-        # Let's build a wide and deep DQN (Using Keras Functional API)
-        # Current State is:
-        # Inputs are as 0/1 state matrix of each block on screen AND the x.y positions of the tetromino
-        # We pass the tetromino details in twice once for the initial input
-        # Secondly so it can be passed into the last concat layer so it retains influence
-        # Two hidden layers with 300 neurons each all using relu
-        # A concat layer to persist the tetromino pattern
-        # Finally a softmax output to specify which button to press
-        input_ = keras.layers.Input(shape=[(number_of_rows * number_of_columns) + 8])
-        tetrominoinput_ = keras.layers.Input(shape=[8])
-        hidden1 = keras.layers.Dense(300, activation="relu")(input_)
-        hidden2 = keras.layers.Dense(300, activation="relu")(hidden1)
-        concat = keras.layers.Concatenate()([tetrominoinput_, hidden2])
-        output = keras.layers.Dense(brainoutputoptions, activation="softmax")(concat)
-        self.model = keras.Model(inputs=[input_, tetrominoinput_], outputs=[output])
+        # Check if a file called LatestTrainedModel.h5 exists. If it does use that:
+        # Otherwise create the model
+        # To DO THIS FULLY NEED TO SAVE DOWN THE DEQUE TOO (WILL SAVE THIS AFTER EACH TRAINING BATCH)
+        if os.path.exists(os.path.join(root_logdir, "LatestTrainedModel.h5")):
+            self.model = keras.models.load_model(os.path.join(root_logdir, "LatestTrainedModel.h5"))
+        else:
+            # Let's build a wide and deep DQN (Using Keras Functional API)
+            # Current State is:
+            # Inputs are as 0/1 state matrix of each block on screen AND the x.y positions of the tetromino
+            # We pass the tetromino details in twice once for the initial input
+            # Secondly so it can be passed into the last concat layer so it retains influence
+            # Two hidden layers with 300 neurons each all using relu
+            # A concat layer to persist the tetromino pattern
+            # Finally a softmax output to specify which button to press
+            input_ = keras.layers.Input(shape=[(number_of_rows * number_of_columns) + 8])
+            tetrominoinput_ = keras.layers.Input(shape=[8])
+            hidden1 = keras.layers.Dense(300, activation="relu")(input_)
+            hidden2 = keras.layers.Dense(300, activation="relu")(hidden1)
+            concat = keras.layers.Concatenate()([tetrominoinput_, hidden2])
+            output = keras.layers.Dense(brainoutputoptions, activation="softmax")(concat)
+            self.model = keras.Model(inputs=[input_, tetrominoinput_], outputs=[output])
 
     def makeamove(self, totalstatematrix, flattetrominostatematrix):
         keyboard.release(Key.space)
@@ -479,7 +499,7 @@ class Brain:
 
 class TetrisApp(pygame.sprite.Sprite):
     def __init__(self):
-        #Graphics Params
+        # Graphics Params
         self.drop_Tetromino_speed = 500  # Reduce this for a faster game especially when in Machine Mode
         self.drop_Tetromino_speed_rate = 10
         self.level_speed_rate = 45
@@ -508,14 +528,22 @@ class TetrisApp(pygame.sprite.Sprite):
         self.tetromino = Tetromino(self.tetromino_Index[0], False)
         self.tetris_Wall = WallClass()  # For drawing target location of Tetromino
         self.brain = Brain(5)
-        self.replay_buffer = deque(maxlen=2000)
+        self.dequefile = os.path.join(root_logdir, "PickledDeque.obj")
 
-        #Boolean Flags
+        if os.path.exists(self.dequefile):
+            print("File Exists")
+            self.replay_buffer = deque(maxlen=2000)
+            self.replay_buffer = pickle.load(open(self.dequefile, 'rb'))
+        else:
+            self.replay_buffer = deque(maxlen=2000)
+
+        # Boolean Flags
         self.player = "Human"  # "Human"
         self.paused = False
         self.activeGame = False
         self.logssaved = False
         self.training = False
+        self.gamestoplayintraining = 3
         super(TetrisApp, self).__init__()
 
     def handleevents(self):
@@ -542,6 +570,7 @@ class TetrisApp(pygame.sprite.Sprite):
             self.tetris_Wall = WallClass()
             self.score = 0
             self.level = 0
+            self.gamesplayed = 0
             self.tetromino_Count = 0
             self.activeGame = True
             self.logssaved = False
@@ -556,12 +585,13 @@ class TetrisApp(pygame.sprite.Sprite):
             self.tetris_Wall = WallClass()
             self.score = 0
             self.level = 0
+            self.gamesplayed = 0
             self.tetromino_Count = 0
             self.activeGame = True
             self.player = "Machine"
 
         if pressed_keys[K_t]:
-            print("We will now run 1000 iterations of the game to train the model")
+            print("Training Mode")
             # Instantiate our Tetromino for next game
             self.s = time.time()
             self.tetromino_Index = [0, 1, 2, 3, 4, 5, 6]
@@ -570,6 +600,7 @@ class TetrisApp(pygame.sprite.Sprite):
             self.tetris_Wall = WallClass()
             self.score = 0
             self.level = 0
+            self.gamesplayed = 0
             self.tetromino_Count = 0
             self.activeGame = True
             self.player = "Machine"
@@ -587,8 +618,10 @@ class TetrisApp(pygame.sprite.Sprite):
         if self.paused is False and self.activeGame is True:
             self.updateactivegame(pressed_keys)
         elif not self.activeGame:
-            if self.training is True and self.gamesplayed < 3:
-                #This is not working correctly for levels
+            if self.training is True and self.gamesplayed < self.gamestoplayintraining:
+                # We need to update the DCN Here:
+
+                # End of DCN Update so we can start a new game
                 self.s = time.time()
                 self.drop_Tetromino_speed = 500  # Reduce this for a faster game especially when in Machine Mode
                 self.drop_Tetromino_speed_rate = 10
@@ -643,8 +676,13 @@ class TetrisApp(pygame.sprite.Sprite):
                                            self.number_of_rows_with_no_downkey)
         score_candidate = self.tetris_Wall.clearlines(self.level, self.score)
         if score_candidate == -1:
-            run_id = time.strftime("run_%Y_%m_%d-%H_%M_%S.h5")
-            self.brain.model.save(os.path.join(root_logdir, run_id))
+            if self.gamesplayed < self.gamestoplayintraining:
+                run_id = time.strftime("run_%Y_%m_%d-%H_%M_%S.h5")
+                self.brain.model.save(os.path.join(root_logdir, run_id))
+            else:
+                self.brain.model.save(os.path.join(root_logdir, "LatestTrainedModel.h5"))
+                if self.training:
+                    pickle.dump(self.replay_buffer, open(self.dequefile,'wb'))
             self.activeGame = False
             self.logssaved = True
         else:
@@ -661,8 +699,13 @@ class TetrisApp(pygame.sprite.Sprite):
                     if brick.rect.x == wallBrick.rect.x:
                         if brick.rect.y == wallBrick.rect.y:
                             self.tetromino.wallOverlap = True
-                            run_id = time.strftime("run_%Y_%m_%d-%H_%M_%S.h5")
-                            self.brain.model.save(os.path.join(root_logdir, run_id))
+                            if self.gamesplayed < self.gamestoplayintraining:
+                                run_id = time.strftime("run_%Y_%m_%d-%H_%M_%S.h5")
+                                self.brain.model.save(os.path.join(root_logdir, run_id))
+                            else:
+                                self.brain.model.save(os.path.join(root_logdir, "LatestTrainedModel.h5"))
+                                if self.training:
+                                    pickle.dump(self.replay_buffer, open(self.dequefile,'wb'))
                             self.logssaved = True
                             self.activeGame = False
 
@@ -677,7 +720,7 @@ class TetrisApp(pygame.sprite.Sprite):
         msg_image = f.render(msg, True, msg_color, None)
         scoresurf = pygame.Surface((20, 5), pygame.SRCALPHA, 32)
         scorerect = scoresurf.get_rect()
-        scorerect.x = 125
+        scorerect.x = 145
         scorerect.y = 0
         self.screen.blit(msg_image, scorerect)
 
@@ -800,4 +843,3 @@ def play_tetris():
 
 
 play_tetris()
-print(time.time() - s)
