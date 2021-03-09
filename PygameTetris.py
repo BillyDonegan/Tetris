@@ -10,13 +10,14 @@
 # TO DO: Refactor? to seperate graphics from the game.
 # -------- 3. Machine Learning Training ----------------
 # 4b. Save down logs (not just model) after game finishes
-# 4c. The  big step is to update model after each game. Need to think about hyperparameter tuning
+# DONE: The  big step is to update model after each game. Need to think about hyperparameter tuning
 # -------- 4. WebApp, Deployment and Cloud Storage/Compute ----------------
 # Looks like will use pyinstaller to create a .exe and a wheel for distribution
 # more details at: https://packaging.python.org/overview/
 
 import time, os, sys, math, pickle, pygame
 import numpy as np
+import tensorflow as tf
 from tensorflow import keras
 from collections import deque
 from pygame.locals import *
@@ -467,26 +468,25 @@ class Brain:
         return outputdecision
 
     def updatebrain(self):
-        batch_size = 32
+        batch_size = 5
         discount_factor = 0.95
         optimizer = keras.optimizers.Adam(lr=1e-3)
         loss_fn = keras.losses.mean_squared_error
-        indices = np.random.randint(len(self.replay_buffer), size=32)  # Sampling 32 from the buffer at a time
+        indices = np.random.randint(len(self.replay_buffer), size=5)  # Sampling 32 from the buffer at a time
         batch = [self.replay_buffer[index] for index in indices]
-        #print(batch[0])
-        # structure above is [array[400],array[8]], int, int, [array[400],array[8]], bool
-        # This bit is going to take a proper understanding of np.
-        # retrain_state_input[np.newaxis], retrain_tetromino_input[np.newaxis], retrain_action, retrain_score, retrain_state_output[np.newaxis], retrain_tetromino_output[np.newaxis], retrain_done = [np.array([experience[field_index] for experience in batch]) for field_index in range(5)]
-        # experiences = [np.array([experience[field_index] for experience in batch]) for field_index in range(5)]
-        # retrain_state_input, retrain_action, retrain_score, retrain_state_output, retrain_done = experiences
-        # next_Q_values = model.predict((retrain_state_input[np.newaxis], retrain_tetromino_input[np.newaxis]))
-        # max_next_Q_values = np.max(next_Q_values, axis = 1)
-        # target_Q_values = (retrain_score + (1 - retrain_done) * 0.95 * max_next_Q_values)
-        # target_Q_values = target_Q_values.reshape(-1,1)
-        # mask = tf.one_hot(retrain_action, brainoutputoptions)
-        # End of DCN Update so we can start a new game
-        #return 1
-
+        retrain_state_input, retrain_action, retrain_score, retrain_state_output, retrain_done = [np.array([experience[field_index] for experience in batch]) for field_index in range(5)]
+        secondinput = retrain_state_input[:,-8:]
+        next_Q_values = self.model.predict((retrain_state_input, secondinput))
+        max_next_Q_values = np.max(next_Q_values, axis = 1)
+        target_Q_values = (retrain_score + (1 - retrain_done) * 0.95 * max_next_Q_values)
+        target_Q_values = target_Q_values.reshape(-1,1)
+        mask = tf.one_hot(retrain_action, self.outputs)
+        with tf.GradientTape() as tape:
+            all_Q_values = self.model((retrain_state_input, secondinput))
+            Q_values = tf.reduce_sum(all_Q_values * mask, axis = 1, keepdims=True)
+            loss = tf.reduce_mean(loss_fn(target_Q_values, Q_values))
+        grads = tape.gradient(loss, self.model.trainable_variables)
+        optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
 
 class TetrisApp(pygame.sprite.Sprite):
     def __init__(self):
