@@ -438,7 +438,7 @@ class Brain:
         else:
             self.replay_buffer = deque(maxlen=2000)
 
-    def makeamove(self, totalstatematrix, flattetrominostatematrix):
+    def makeamove(self, totalstatematrix):
         keyboard.release(Key.space)
         keyboard.release(Key.right)
         keyboard.release(Key.left)
@@ -449,7 +449,7 @@ class Brain:
         if np.random.rand() < self.epsilon:  # Make a random move epsilon of the time
             outputdecision = np.random.randint(self.outputs)
         else:  # Make a move as specified by the DQN
-            q_values = self.model.predict((totalstatematrix[np.newaxis], flattetrominostatematrix[np.newaxis]))
+            q_values = self.model.predict((totalstatematrix[np.newaxis], totalstatematrix[-8:][np.newaxis]))
             outputdecision = np.argmax(q_values[0])
 
         # Make our Move
@@ -564,14 +564,14 @@ class TetrisApp(pygame.sprite.Sprite):
                 self.restartscreen()
 
     def updateactivegame(self, pressed_keys):
-        if self.player == "Machine" and self.paused is False and self.activeGame is True:
-            wallarray, tetrominoarray = self.getstatearray()
-            totalstatematrix = np.concatenate((wallarray.flatten(), tetrominoarray.flatten()))
-            # Pass to DQN to make a move
-            brainbuttonpress = self.brain.makeamove(totalstatematrix, tetrominoarray.flatten())
-
         pygame.event.set_blocked(pygame.KEYUP)
         pygame.event.set_blocked(pygame.KEYDOWN)
+
+        if self.player == "Machine" and self.paused is False and self.activeGame is True:
+            wallarray, tetrominoarray = self.getstatearray()
+            totalstate = np.concatenate((wallarray.flatten(), tetrominoarray.flatten()))
+            brainbuttonpress = self.brain.makeamove(totalstate)
+
         previousscore = self.score
         self.score = self.tetromino.update(pressed_keys, self.tetris_Wall, self.score,
                                            self.number_of_rows_with_no_downkey)
@@ -662,19 +662,11 @@ class TetrisApp(pygame.sprite.Sprite):
             for brick in self.tetris_Wall.bricks:
                 self.screen.blit(brick.surf, brick.rect)
 
-        # Creating the Post state matrices
+        # Create the Post state matrices and add to the deque
         if self.player == "Machine" and self.paused is False and self.activeGame is True:
-            poststatematrix = np.zeros((number_of_rows, number_of_columns))
-            posttetrominolist = []
-            poststatematrix, posttetrominostatematrix = self.getstatearray()
-
-            postflatstatematrix = poststatematrix.flatten()
-            postflattetrominostatematrix = posttetrominostatematrix.flatten()
-            posttotalstatematrix = np.concatenate((postflatstatematrix, postflattetrominostatematrix))
-            flatstatematrix = wallarray.flatten()
-            flattetrominostatematrix = tetrominoarray.flatten()
-
-            self.brain.replay_buffer.append(((flatstatematrix[np.newaxis], flattetrominostatematrix[np.newaxis]), brainbuttonpress, self.score - previousscore, (posttotalstatematrix[np.newaxis], postflattetrominostatematrix[np.newaxis]), not(self.activeGame)))
+            postwallarray, posttetrominoarray = self.getstatearray()
+            posttotalstate = np.concatenate((postwallarray.flatten(), posttetrominoarray.flatten()))
+            self.brain.replay_buffer.append((totalstate, brainbuttonpress, self.score - previousscore, posttotalstate, not(self.activeGame)))
 
         pygame.event.set_allowed(pygame.KEYUP)
         pygame.event.set_allowed(pygame.KEYDOWN)
