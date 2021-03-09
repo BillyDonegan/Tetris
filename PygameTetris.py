@@ -6,6 +6,7 @@
 # --------- 1. GAME ---------------------------
 # TO DO: NEW BUG - Rotate is not working. Not checking for wall block before rotation only checking edge
 # TO DO: NEW BUG - Still some issues at top level with overlaps (Might be resolved by above or else a try/catch)
+# TO DO: NEW BUG - 'T' is being created one level too high
 # TO DO: Refactor? to seperate graphics from the game.
 # -------- 3. Machine Learning Training ----------------
 # 4b. Save down logs (not just model) after game finishes
@@ -342,6 +343,14 @@ class Tetromino:
         pygame.event.set_allowed(pygame.KEYDOWN)
         pygame.event.set_allowed(pygame.KEYUP)
 
+    #def getstatearray(self):
+    #    tetrominostatearray = np.array[8]
+    #    for brick in self.tetromino.bricks:
+    #        tetrominostatearray.append(brick.Xcoord)
+    #        tetrominostatearray.append(brick.Ycoord)
+    #    print(tetrominostatearray)
+    #    return tetrominostatearray
+
 
 class WallClass:
     def __init__(self):
@@ -392,6 +401,15 @@ class WallClass:
                         brick.rect.y = brick.Ycoord
                         brick.bottom = int(brick.Ycoord + screen_width / number_of_columns)
         return score
+
+    #def getstatearray(self, tetromino):
+    #    wallstatearray = np.array[number_of_rows, number_of_columns]
+    #    for brick in tetromino.bricks:
+    #        wallstatearray[int(brick.Ycoord / 20), int(brick.Xcoord / 20)] = 1
+    #    for brick in self.bricks:
+    #        wallstatearray[int(brick.Ycoord / 20), int(brick.Xcoord / 20)] = 1
+    #    print(wallstatearray)
+    #    return wallstatearray
 
 
 class Brain:
@@ -457,7 +475,7 @@ class Brain:
         indices = np.random.randint(len(self.replay_buffer), size=32)  # Sampling 32 from the buffer at a time
         batch = [self.replay_buffer[index] for index in indices]
         #print(batch[0])
-        # structre above is [array[400],array[8]], int, int, [array[400],array[8]], bool
+        # structure above is [array[400],array[8]], int, int, [array[400],array[8]], bool
         # This bit is going to take a proper understanding of np.
         # retrain_state_input[np.newaxis], retrain_tetromino_input[np.newaxis], retrain_action, retrain_score, retrain_state_output[np.newaxis], retrain_tetromino_output[np.newaxis], retrain_done = [np.array([experience[field_index] for experience in batch]) for field_index in range(5)]
         # experiences = [np.array([experience[field_index] for experience in batch]) for field_index in range(5)]
@@ -469,6 +487,7 @@ class Brain:
         # mask = tf.one_hot(retrain_action, brainoutputoptions)
         # End of DCN Update so we can start a new game
         #return 1
+
 
 class TetrisApp(pygame.sprite.Sprite):
     def __init__(self):
@@ -536,11 +555,7 @@ class TetrisApp(pygame.sprite.Sprite):
         if self.paused is False and self.activeGame is True:  # Update based on key moves
             self.updateactivegame(pressed_keys)
         elif not self.activeGame:
-            print(self.gamesplayed)
-            print(self.gamestoplayintraining)
-            print(self.training)
             if self.training is True and self.gamesplayed < self.gamestoplayintraining:  # Update training model
-                print("In the update")
                 self.brain.updatebrain()
                 self.gamesplayed = self.gamesplayed + 1
                 self.initialiseparameters()
@@ -750,6 +765,13 @@ class TetrisApp(pygame.sprite.Sprite):
         self.level = 0
         self.tetromino_Count = 0
 
+    #def getstatearray(self):
+    #    wallstatearray = np.array[number_of_rows, number_of_columns]
+    #    tetrominostatearray = np.array[8]
+    #    wallstatearray = self.tetris_Wall.getstatearray(self.tetromino)
+    #    tetrominostatearray = self.tetromino.getstatearray()
+    #    return wallstatearray, tetrominostatearray
+
 
 def play_tetris():
     tetrisapp = TetrisApp()
@@ -758,5 +780,6 @@ def play_tetris():
         tetrisapp.handleevents()
         pygame.display.flip()
         fpsclock.tick(tetrisapp.FPS)
+
 
 play_tetris()
