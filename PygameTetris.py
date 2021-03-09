@@ -343,13 +343,13 @@ class Tetromino:
         pygame.event.set_allowed(pygame.KEYDOWN)
         pygame.event.set_allowed(pygame.KEYUP)
 
-    #def getstatearray(self):
-    #    tetrominostatearray = np.array[8]
-    #    for brick in self.tetromino.bricks:
-    #        tetrominostatearray.append(brick.Xcoord)
-    #        tetrominostatearray.append(brick.Ycoord)
-    #    print(tetrominostatearray)
-    #    return tetrominostatearray
+    def getstatearray(self):
+        tetrominostatearraylist = []
+        for brick in self.bricks:
+            tetrominostatearraylist.append(brick.Xcoord)
+            tetrominostatearraylist.append(brick.Ycoord)
+        tetrominostatearray = np.array(tetrominostatearraylist)
+        return tetrominostatearray
 
 
 class WallClass:
@@ -402,14 +402,13 @@ class WallClass:
                         brick.bottom = int(brick.Ycoord + screen_width / number_of_columns)
         return score
 
-    #def getstatearray(self, tetromino):
-    #    wallstatearray = np.array[number_of_rows, number_of_columns]
-    #    for brick in tetromino.bricks:
-    #        wallstatearray[int(brick.Ycoord / 20), int(brick.Xcoord / 20)] = 1
-    #    for brick in self.bricks:
-    #        wallstatearray[int(brick.Ycoord / 20), int(brick.Xcoord / 20)] = 1
-    #    print(wallstatearray)
-    #    return wallstatearray
+    def getstatearray(self, tetromino):
+        wallstatearray = np.zeros((number_of_rows, number_of_columns))
+        for brick in tetromino.bricks:
+            wallstatearray[int(brick.Ycoord / 20), int(brick.Xcoord / 20)] = 1
+        for brick in self.bricks:
+            wallstatearray[int(brick.Ycoord / 20), int(brick.Xcoord / 20)] = 1
+        return wallstatearray
 
 
 class Brain:
@@ -566,30 +565,10 @@ class TetrisApp(pygame.sprite.Sprite):
 
     def updateactivegame(self, pressed_keys):
         if self.player == "Machine" and self.paused is False and self.activeGame is True:
-            # Need to generate a flattened array here of the Screen Status (0 - empty, 1 = wall or tetromino block)
-            # Also generating a flattened array of the Tetromino x,y cooords
-            statematrix = np.zeros((number_of_rows, number_of_columns))
-            tetrominolist = []
-
-            # Generate Wall State Matrix (including Tetromino)
-            for brick in self.tetromino.bricks:
-                statematrix[int(brick.Ycoord / 20), int(brick.Xcoord / 20)] = 1
-            for brick in self.tetris_Wall.bricks:
-                statematrix[int(brick.Ycoord / 20), int(brick.Xcoord / 20)] = 1
-            flatstatematrix = statematrix.flatten()
-
-            # Generate Tetromino State
-            for brick in self.tetromino.bricks:
-                tetrominolist.append(brick.Xcoord)
-                tetrominolist.append(brick.Ycoord)
-
-            # Flatten and append
-            tetrominostatematrix = np.array(tetrominolist)
-            flattetrominostatematrix = tetrominostatematrix.flatten()
-            totalstatematrix = np.concatenate((flatstatematrix, flattetrominostatematrix))
-
+            wallarray, tetrominoarray = self.getstatearray()
+            totalstatematrix = np.concatenate((wallarray.flatten(), tetrominoarray.flatten()))
             # Pass to DQN to make a move
-            brainbuttonpress = self.brain.makeamove(totalstatematrix, flattetrominostatematrix)
+            brainbuttonpress = self.brain.makeamove(totalstatematrix, tetrominoarray.flatten())
 
         pygame.event.set_blocked(pygame.KEYUP)
         pygame.event.set_blocked(pygame.KEYDOWN)
@@ -687,23 +666,13 @@ class TetrisApp(pygame.sprite.Sprite):
         if self.player == "Machine" and self.paused is False and self.activeGame is True:
             poststatematrix = np.zeros((number_of_rows, number_of_columns))
             posttetrominolist = []
+            poststatematrix, posttetrominostatematrix = self.getstatearray()
 
-            # Generate Wall State Matrix (including Tetromino)
-            for brick in self.tetromino.bricks:
-                poststatematrix[int(brick.Ycoord / 20), int(brick.Xcoord / 20)] = 1
-            for brick in self.tetris_Wall.bricks:
-                poststatematrix[int(brick.Ycoord / 20), int(brick.Xcoord / 20)] = 1
             postflatstatematrix = poststatematrix.flatten()
-
-            # Generate Tetromino State
-            for brick in self.tetromino.bricks:
-                posttetrominolist.append(brick.Xcoord)
-                posttetrominolist.append(brick.Ycoord)
-
-            # Flatten and append
-            posttetrominostatematrix = np.array(posttetrominolist)
             postflattetrominostatematrix = posttetrominostatematrix.flatten()
             posttotalstatematrix = np.concatenate((postflatstatematrix, postflattetrominostatematrix))
+            flatstatematrix = wallarray.flatten()
+            flattetrominostatematrix = tetrominoarray.flatten()
 
             self.brain.replay_buffer.append(((flatstatematrix[np.newaxis], flattetrominostatematrix[np.newaxis]), brainbuttonpress, self.score - previousscore, (posttotalstatematrix[np.newaxis], postflattetrominostatematrix[np.newaxis]), not(self.activeGame)))
 
@@ -765,12 +734,12 @@ class TetrisApp(pygame.sprite.Sprite):
         self.level = 0
         self.tetromino_Count = 0
 
-    #def getstatearray(self):
-    #    wallstatearray = np.array[number_of_rows, number_of_columns]
-    #    tetrominostatearray = np.array[8]
-    #    wallstatearray = self.tetris_Wall.getstatearray(self.tetromino)
-    #    tetrominostatearray = self.tetromino.getstatearray()
-    #    return wallstatearray, tetrominostatearray
+    def getstatearray(self):
+        wallstatearray = np.zeros((number_of_rows, number_of_columns))
+        tetrominostatearray = np.zeros((8,))
+        wallstatearray = self.tetris_Wall.getstatearray(self.tetromino)
+        tetrominostatearray = self.tetromino.getstatearray()
+        return wallstatearray, tetrominostatearray
 
 
 def play_tetris():
