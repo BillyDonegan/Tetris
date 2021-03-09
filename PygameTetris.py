@@ -9,7 +9,8 @@
 # TO DO: NEW BUG - 'T' is being created one level too high
 # TO DO: Refactor? to seperate graphics from the game.
 # -------- 3. Machine Learning Training ----------------
-# 4b. Save down logs (not just model) after game finishes
+# DONE: Save down logs (not just model) after game finishes
+# TO DO: Add TotalGamesPlayed and store offline like deck. Append Logs to existing TensorBoard Log
 # DONE: The  big step is to update model after each game. Need to think about hyperparameter tuning
 # -------- 4. WebApp, Deployment and Cloud Storage/Compute ----------------
 # Looks like will use pyinstaller to create a .exe and a wheel for distribution
@@ -417,9 +418,7 @@ class Brain:
         self.epsilon = 0.05  # This is the epsilon for the greedy algorithm.
         self.outputs = 5
         self.root_logdir = os.path.join(os.curdir, "Tetris_RL_Model_Logs")
-        self.root_resultdir = os.path.join(os.curdir, "Tetris_RL_Result_Logs")
         self.dequefile = os.path.join(self.root_logdir, "PickledDeque.obj")
-
         # Check if a file called LatestTrainedModel.h5 exists, otherwise create the model
         if os.path.exists(os.path.join(self.root_logdir, "LatestTrainedModel.h5")):
             self.model = keras.models.load_model(os.path.join(self.root_logdir, "LatestTrainedModel.h5"))
@@ -491,6 +490,8 @@ class Brain:
 class TetrisApp(pygame.sprite.Sprite):
     def __init__(self):
         # Graphics Params
+        self.root_resultdir = os.path.join(os.curdir, "Tetris_RL_Result_Logs")
+        self.writer = tf.summary.create_file_writer(self.root_resultdir)
         self.screen_Caption = "Tetris"
         self.number_of_rows_with_no_downkey = 2
         self.rng1 = np.random.RandomState()
@@ -603,10 +604,24 @@ class TetrisApp(pygame.sprite.Sprite):
                             if self.gamesplayed < self.gamestoplayintraining:
                                 run_id = time.strftime("run_%Y_%m_%d-%H_%M_%S.h5")
                                 self.brain.model.save(os.path.join(self.brain.root_logdir, run_id))
+                                with self.writer.as_default():
+                                    tf.summary.scalar(name = "score", data = self.score, step=self.gamesplayed)
+                                    tf.summary.scalar(name = "level", data = self.level, step=self.gamesplayed)
+                                    dqn_variables = self.brain.model.trainable_variables
+                                    tf.summary.histogram(name="dqn_variables-Layer1",
+                                                         data=tf.convert_to_tensor(dqn_variables[0]),
+                                                         step=self.gamesplayed)
+                                    tf.summary.histogram(name="dqn_variables-Layer2",
+                                                         data=tf.convert_to_tensor(dqn_variables[1]),
+                                                         step=self.gamesplayed)
+                                    tf.summary.histogram(name="dqn_variables-Layer3",
+                                                         data=tf.convert_to_tensor(dqn_variables[2]),
+                                                         step=self.gamesplayed)
                             else:
                                 self.brain.model.save(os.path.join(self.brain.root_logdir, "LatestTrainedModel.h5"))
                                 if self.training:
                                     pickle.dump(self.brain.replay_buffer, open(self.brain.dequefile,'wb'))
+                                    self.writer.flush()
                             self.logssaved = True
                             self.activeGame = False
 
