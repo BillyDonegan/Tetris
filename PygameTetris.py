@@ -9,9 +9,10 @@
 # TO DO: NEW BUG - 'T' is being created one level too high
 # TO DO: Refactor? to seperate graphics from the game.
 # -------- 3. Machine Learning Training ----------------
-# DONE: Save down logs (not just model) after game finishes
-# TO DO: Add TotalGamesPlayed and store offline like deck. Append Logs to existing TensorBoard Log
-# DONE: The  big step is to update model after each game. Need to think about hyperparameter tuning
+# TO DO: Add game_id and store offline in deque. Use to have a games played total for TensorBoard Log
+# TO DO: Add NN Visualisation?
+# TO DO: Confirm Boolean Done in Deque
+# TO DO: Think about hyper parameter tuning
 # -------- 4. WebApp, Deployment and Cloud Storage/Compute ----------------
 # Looks like will use pyinstaller to create a .exe and a wheel for distribution
 # more details at: https://packaging.python.org/overview/
@@ -433,10 +434,15 @@ class Brain:
 
         # Create or reload a replay buffer
         if os.path.exists(self.dequefile):
+            print("Dequefile exists")
             self.replay_buffer = deque(maxlen=2000)
             self.replay_buffer = pickle.load(open(self.dequefile, 'rb'))
+            totalgamescheck = self.replay_buffer.__getitem__(-1)
+            self.game_id = totalgamescheck[-1]
+            print(self.game_id)
         else:
             self.replay_buffer = deque(maxlen=2000)
+            self.game_id = 0
 
     def makeamove(self, totalstatematrix):
         keyboard.release(Key.space)
@@ -467,13 +473,13 @@ class Brain:
         return outputdecision
 
     def updatebrain(self):
-        batch_size = 5
+        batch_size = 40
         discount_factor = 0.95
         optimizer = keras.optimizers.Adam(lr=1e-3)
         loss_fn = keras.losses.mean_squared_error
-        indices = np.random.randint(len(self.replay_buffer), size=5)  # Sampling 32 from the buffer at a time
+        indices = np.random.randint(len(self.replay_buffer), size=40)  # Sampling 32 from the buffer at a time
         batch = [self.replay_buffer[index] for index in indices]
-        retrain_state_input, retrain_action, retrain_score, retrain_state_output, retrain_done = [np.array([experience[field_index] for experience in batch]) for field_index in range(5)]
+        retrain_state_input, retrain_action, retrain_score, retrain_state_output, retrain_done, retrain_gamesplayed = [np.array([experience[field_index] for experience in batch]) for field_index in range(6)]
         secondinput = retrain_state_input[:,-8:]
         next_Q_values = self.model.predict((retrain_state_input, secondinput))
         max_next_Q_values = np.max(next_Q_values, axis = 1)
@@ -528,6 +534,8 @@ class TetrisApp(pygame.sprite.Sprite):
             self.player = "Human"
             self.gamesplayed = 0
             self.initialiseparameters()
+            self.drop_Tetromino_speed = 500  # Reset for Human
+            self.drop_Tetromino_speed_rate = 10  # Reset for Humam
             self.activeGame = True
 
         if pressed_keys[K_m]:
@@ -540,6 +548,7 @@ class TetrisApp(pygame.sprite.Sprite):
             self.player = "Machine"
             self.training = True
             self.gamesplayed = 0
+            #self.brain.game_id = self.brain.game_id + 1
             self.initialiseparameters()
             self.activeGame = True
 
@@ -555,12 +564,17 @@ class TetrisApp(pygame.sprite.Sprite):
         if self.paused is False and self.activeGame is True:  # Update based on key moves
             self.updateactivegame(pressed_keys)
         elif not self.activeGame:
-            if self.training is True and self.gamesplayed < self.gamestoplayintraining:  # Update training model
-                self.brain.updatebrain()
+            if self.training is True and self.gamesplayed <= self.gamestoplayintraining:  # Update training model
                 self.gamesplayed = self.gamesplayed + 1
+                self.brain.game_id = self.brain.game_id + 1
+                self.brain.updatebrain()
                 self.initialiseparameters()
                 self.activeGame = True
                 pygame.time.set_timer(self.drop_Tetromino, self.drop_Tetromino_speed)
+                print(self.brain.game_id)
+                totalgamescheck = self.brain.replay_buffer.__getitem__(-1)
+                self.game_idtest = totalgamescheck[-1]
+                print(self.game_idtest)
             else:
                 self.restartscreen()
 
@@ -601,27 +615,27 @@ class TetrisApp(pygame.sprite.Sprite):
                     if brick.rect.x == wallBrick.rect.x:
                         if brick.rect.y == wallBrick.rect.y:
                             self.tetromino.wallOverlap = True
-                            if self.gamesplayed < self.gamestoplayintraining:
+                            if self.gamesplayed <= self.gamestoplayintraining:
                                 run_id = time.strftime("run_%Y_%m_%d-%H_%M_%S.h5")
                                 self.brain.model.save(os.path.join(self.brain.root_logdir, run_id))
                                 with self.writer.as_default():
-                                    tf.summary.scalar(name = "score", data = self.score, step=self.gamesplayed)
-                                    tf.summary.scalar(name = "level", data = self.level, step=self.gamesplayed)
+                                    tf.summary.scalar(name = "score", data = self.score, step=self.brain.game_id)
+                                    tf.summary.scalar(name = "level", data = self.level, step=self.brain.game_id)
                                     dqn_variables = self.brain.model.trainable_variables
                                     tf.summary.histogram(name="dqn_variables-Layer1",
                                                          data=tf.convert_to_tensor(dqn_variables[0]),
-                                                         step=self.gamesplayed)
+                                                         step=self.brain.game_id)
                                     tf.summary.histogram(name="dqn_variables-Layer2",
                                                          data=tf.convert_to_tensor(dqn_variables[1]),
-                                                         step=self.gamesplayed)
+                                                         step=self.brain.game_id)
                                     tf.summary.histogram(name="dqn_variables-Layer3",
                                                          data=tf.convert_to_tensor(dqn_variables[2]),
-                                                         step=self.gamesplayed)
+                                                         step=self.brain.game_id)
                             else:
                                 self.brain.model.save(os.path.join(self.brain.root_logdir, "LatestTrainedModel.h5"))
                                 if self.training:
-                                    pickle.dump(self.brain.replay_buffer, open(self.brain.dequefile,'wb'))
                                     self.writer.flush()
+                                    pickle.dump(self.brain.replay_buffer, open(self.brain.dequefile,'wb'))
                             self.logssaved = True
                             self.activeGame = False
 
@@ -658,13 +672,13 @@ class TetrisApp(pygame.sprite.Sprite):
 
         # Display Score
         if self.training is True:
-            msg = "Game: " + str(self.gamesplayed)
+            msg = "Game: " + str(self.brain.game_id)
             msg_color = (0, 255, 255)
             f = pygame.font.SysFont('arial', 12)
             msg_image = f.render(msg, True, msg_color, None)
             gamessurf = pygame.Surface((20, 5), pygame.SRCALPHA, 32)
             gamesrect = gamessurf.get_rect()
-            gamesrect.x = 75
+            gamesrect.x = 65
             gamesrect.y = 0
             self.screen.blit(msg_image, gamesrect)
 
@@ -681,7 +695,7 @@ class TetrisApp(pygame.sprite.Sprite):
         if self.player == "Machine" and self.paused is False and self.activeGame is True:
             postwallarray, posttetrominoarray = self.getstatearray()
             posttotalstate = np.concatenate((postwallarray.flatten(), posttetrominoarray.flatten()))
-            self.brain.replay_buffer.append((totalstate, brainbuttonpress, self.score - previousscore, posttotalstate, not(self.activeGame)))
+            self.brain.replay_buffer.append((totalstate, brainbuttonpress, self.score - previousscore, posttotalstate, not(self.activeGame), self.brain.game_id))
 
         pygame.event.set_allowed(pygame.KEYUP)
         pygame.event.set_allowed(pygame.KEYDOWN)
@@ -729,8 +743,8 @@ class TetrisApp(pygame.sprite.Sprite):
         keyboard.release(Key.down)
         keyboard.release('z')
         self.s = time.time()
-        self.drop_Tetromino_speed = 500  # Reduce this for a faster game especially when in Machine Mode
-        self.drop_Tetromino_speed_rate = 10
+        self.drop_Tetromino_speed = 500  # Originally 500 Reduce this for a faster game especially when in Machine Mode
+        self.drop_Tetromino_speed_rate = 10 # Originally 10
         self.level_speed_rate = 45
         self.FPS = 10
         self.tetromino_Index = [0, 1, 2, 3, 4, 5, 6]
@@ -742,8 +756,6 @@ class TetrisApp(pygame.sprite.Sprite):
         self.tetromino_Count = 0
 
     def getstatearray(self):
-        wallstatearray = np.zeros((number_of_rows, number_of_columns))
-        tetrominostatearray = np.zeros((8,))
         wallstatearray = self.tetris_Wall.getstatearray(self.tetromino)
         tetrominostatearray = self.tetromino.getstatearray()
         return wallstatearray, tetrominostatearray
